@@ -233,6 +233,62 @@ function getSender(m) {
   return m.key.participant || m.key.remoteJid;
 }
 
+// ---------- Identitas grup (multi-user): hanya dipakai di jalur isGroup ----------
+// displayName dari pushName pengirim; quoted text dibaca manual (tanpa download);
+// mentions diteruskan apa adanya ke context (mention stripping di body tetap).
+function getDisplayName(m) {
+  return String(m.pushName || '').trim();
+}
+
+function getQuotedText(m) {
+  try {
+    const q = getQuoted(m);
+    if (!q || !q.quotedMessage) return '';
+    const inner = unwrapMessage(q.quotedMessage) || {};
+    const t = (
+      inner.conversation ||
+      inner.extendedTextMessage?.text ||
+      inner.imageMessage?.caption ||
+      inner.videoMessage?.caption ||
+      inner.documentMessage?.caption ||
+      inner.audioMessage?.caption ||
+      ''
+    ).trim();
+    return t.slice(0, 500);
+  } catch {
+    return '';
+  }
+}
+
+function getMentionList(m) {
+  try {
+    const inner = unwrapMessage(m.message || {}) || {};
+    const ctx =
+      inner.extendedTextMessage?.contextInfo ||
+      inner.imageMessage?.contextInfo ||
+      inner.videoMessage?.contextInfo ||
+      inner.audioMessage?.contextInfo ||
+      inner.documentMessage?.contextInfo ||
+      inner.stickerMessage?.contextInfo ||
+      null;
+    const arr = ctx?.mentionedJid || [];
+    return arr.map((j) => String(j)).filter(Boolean).slice(0, 10);
+  } catch {
+    return [];
+  }
+}
+
+// Paket opts untuk memory builder grup: { isGroup, senderId, displayName, quotedText, mentions }
+function groupSenderOpts(m) {
+  return {
+    isGroup: true,
+    senderId: getSender(m),
+    displayName: getDisplayName(m),
+    quotedText: getQuotedText(m),
+    mentions: getMentionList(m),
+  };
+}
+
 function botJidNormalized(sock) {
   const id = sock.user?.id || '';
   return id.split(':')[0].split('@')[0];
@@ -651,6 +707,16 @@ async function handleMessage(sock, m) {
         return await safeReply(sock, jid, `Contoh: ${prefix}ai Halo, apa kabar?`, m);
       }
       try {
+        if (isGroup) {
+          // Jalur grup: sertakan identitas pengirim + reply/mention ke context.
+          // Jalur private di bawah TIDAK diubah.
+          const gopts = groupSenderOpts(m);
+          const prompt = buildContextPrompt(jid, withTalkFlag(jid, sender, args), gopts);
+          const answer = await chatAI(prompt, undefined, undefined, sessionStyle(jid, sender) || config.STYLE);
+          pushMessage(jid, 'user', args, gopts);
+          pushMessage(jid, 'bot', answer);
+          return await safeReply(sock, jid, answer, m);
+        }
         const prompt = buildContextPrompt(jid, withTalkFlag(jid, sender, args));
         const answer = await chatAI(prompt, undefined, undefined, sessionStyle(jid, sender) || config.STYLE);
         pushMessage(jid, 'user', args);
