@@ -1,0 +1,24 @@
+{
+  "name": "wa-ai-bot-b",
+  "version": "1.0.0",
+  "description": "Bot WhatsApp AI versi B - Gemini + Groq, stiker, img, VN transkrip",
+  "main": "index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "dotenv": "^16.4.5",
+    "mammoth": "^1.8.0",
+    "node-edge-tts": "^1.2.10",
+    "pdf-parse": "^1.1.1",
+    "pino": "^9.4.0",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
+    "sharp": "^0.33.4"
+  }
+}
