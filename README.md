@@ -52,7 +52,21 @@ npm start
 
 ### 🩹 Khusus Termux: kalau `sharp` error
 
-Sharp (buat stiker) sering gagal install di Termux. Kalau `npm install` error soal sharp / `node -e "console.log(require('sharp').versions)"` gagal, jalankan ini:
+Sharp (buat stiker) sering gagal install di Termux (`ERR_DLOPEN_FAILED`, simbol NDK tidak ketemu). Kalau `npm install` error soal sharp / `node -e "console.log(require('sharp').versions)"` gagal, coba berurutan:
+
+**Opsi A — versi WebAssembly (paling gampang, recommended):**
+
+```bash
+cd ~/wa-ai-bot-b
+npm remove sharp
+npm install --cpu=wasm32 sharp
+npm install @img/sharp-wasm32
+node -e "console.log(require('sharp').versions)"
+```
+
+Kalau daftar versi (`vips`, `sharp`, ...) ke-print = sukses. Sedikit lebih lambat dari versi native, tapi buat stiker gak kerasa. Lanjut `npm start`.
+
+**Opsi B — rebuild pakai libvips Termux (kalau Opsi A gagal):**
 
 ```bash
 pkg update
