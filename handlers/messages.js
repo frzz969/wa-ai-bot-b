@@ -1,4 +1,6 @@
 // handlers/messages.js — router semua perintah bot
+const fs = require('fs');
+const path = require('path');
 const config = require('../config');
 const { chatAI, transcribeAudio } = require('../lib/ai');
 const { pushMessage, buildContextPrompt, clearMemory, getMemory, countChats } = require('../lib/memory');
@@ -418,144 +420,183 @@ function isMentionToBot(m, sock) {
   return mentioned.some((j) => j.split('@')[0].split(':')[0] === botNum);
 }
 
-function menuText(prefix) {
+function menuText(pushName, prefix) {
+  // Kompatibel pemanggilan lama menuText(prefix) → anggap prefix saja, nama fallback 'kak'.
+  if (prefix === undefined) {
+    prefix = pushName;
+    pushName = 'kak';
+  }
+  pushName = String(pushName || '').trim() || 'kak';
+  prefix = String(prefix == null ? '.' : prefix);
+  let tanggal = '';
+  try {
+    tanggal = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+  } catch {
+    tanggal = new Date().toDateString();
+  }
   return (
-    `🤖 *SONEZZ AI ASSISTANT*\n` +
-    `Asisten WhatsApp serba bisa — chat, tools, web, kode, file, voice, dan lainnya.\n\n` +
+    `╭──────────────────────────────╮\n` +
+    `│      🤖 *SONEZZ AI ASSISTANT* │\n` +
+    `│       AI · Media · Utility    │\n` +
+    `╰──────────────────────────────╯\n\n` +
+    `Halo kak _${pushName}_ 👋, ada yang bisa dibantu?\n` +
+    `🕐 ${tanggal} · 🔑 Prefix \`${prefix}\`\n\n` +
 
-    `*💬 CHAT*\n` +
-    `${prefix}ai <teks> — tanya AI (mengingat 10 pesan)\n` +
-    `${prefix}talk [teks] — mode curhat dengan gaya lembut\n` +
-    `${prefix}stoptalk — keluar dari mode curhat\n` +
-    `${prefix}new — mulai chat baru + sapaan\n` +
-    `${prefix}clear — hapus ingatan\n` +
-    `${prefix}memory — lihat ingatan\n` +
-    `${prefix}model — lihat model aktif\n\n` +
+    `╭─「 🤖 BOT 」\n` +
+    `│ ${prefix}menu / ${prefix}help — tampilkan menu ini\n` +
+    `│ ${prefix}about — info tentang bot\n` +
+    `│ ${prefix}status — cek status bot\n` +
+    `│ ${prefix}ping — cek respon bot\n` +
+    `│ ${prefix}rules — peraturan bot\n` +
+    `╰─\n\n` +
 
-    `*🧠 AI TOOLS*\n` +
-    `${prefix}ask <tanya> — tanya apa saja\n` +
-    `${prefix}explain <topik> — jelaskan dengan sederhana\n` +
-    `${prefix}summarize <teks> — ringkas teks\n` +
-    `${prefix}rewrite <teks> — tulis ulang dengan gaya berbeda\n` +
-    `${prefix}translate <teks> — terjemahkan ID ⇄ EN\n` +
-    `${prefix}ideas <topik> — buat 7 ide\n\n` +
+    `╭─「 💬 CHAT 」\n` +
+    `│ ${prefix}ai <teks> — tanya AI (mengingat 10 pesan)\n` +
+    `│ ${prefix}talk [teks] — mode curhat gaya lembut\n` +
+    `│ ${prefix}stoptalk — keluar dari mode curhat\n` +
+    `│ ${prefix}new — mulai chat baru + sapaan\n` +
+    `│ ${prefix}clear — hapus ingatan\n` +
+    `│ ${prefix}memory — lihat ingatan\n` +
+    `│ ${prefix}model — lihat model aktif\n` +
+    `╰─\n\n` +
 
-    `*🌐 WEB & INFO*\n` +
-    `${prefix}search <q> — cari informasi di web\n` +
-    `${prefix}news <topik> — cari berita terbaru\n` +
-    `${prefix}weather <kota> — cek cuaca\n` +
-    `${prefix}time <kota> — cek waktu lokal\n\n` +
+    `╭─「 🧠 AI TOOLS 」\n` +
+    `│ ${prefix}ask <tanya> — tanya apa saja\n` +
+    `│ ${prefix}explain <topik> — jelaskan sederhana\n` +
+    `│ ${prefix}summarize <teks> — ringkas teks\n` +
+    `│ ${prefix}rewrite <teks> — tulis ulang gaya beda\n` +
+    `│ ${prefix}translate <teks> — terjemahkan ID ⇄ EN\n` +
+    `│ ${prefix}ideas <topik> — buat 7 ide\n` +
+    `│ ${prefix}qr <teks> — buat QR dari teks\n` +
+    `╰─\n\n` +
 
-    `*💻 CODE*\n` +
-    `${prefix}code <minta> — buatkan kode\n` +
-    `${prefix}debug <kode+error> — analisis error\n` +
-    `${prefix}fix <kode> — perbaiki kode\n\n` +
+    `╭─「 💻 CODING 」\n` +
+    `│ ${prefix}code <minta> — buatkan kode\n` +
+    `│ ${prefix}debug <kode+error> — analisis error\n` +
+    `│ ${prefix}fix <kode> — perbaiki kode\n` +
+    `│ ${prefix}run <kode> — eksekusi JS (owner only)\n` +
+    `╰─\n\n` +
 
-    `*👁️ VISION* (reply gambar)\n` +
-    `${prefix}ocr — baca teks dari gambar\n` +
-    `${prefix}describe — deskripsikan gambar\n` +
-    `${prefix}analyze — analisis gambar secara mendalam\n` +
-    `kirim gambar + caption ${prefix}ai <tanya> juga bisa\n\n` +
+    `╭─「 🌐 WEB & INFO 」\n` +
+    `│ ${prefix}search <q> — cari informasi di web\n` +
+    `│ ${prefix}news <topik> — berita terbaru\n` +
+    `│ ${prefix}weather <kota> — cek cuaca\n` +
+    `│ ${prefix}time <kota> — cek waktu lokal\n` +
+    `│ ${prefix}jadwalsholat <kota> — jadwal sholat\n` +
+    `│ ${prefix}quran <nomor> [jml] — baca surat\n` +
+    `│ ${prefix}gempa — info gempa BMKG\n` +
+    `│ ${prefix}lirik <judul> — cari lirik lagu\n` +
+    `│ ${prefix}shortlink <url> — perpendek link\n` +
+    `│ ${prefix}kbbi <kata> — arti kata KBBI\n` +
+    `│ ${prefix}animesaran — rekomendasi anime\n` +
+    `╰─\n\n` +
 
-    `*🎨 CREATIVE*\n` +
-    `${prefix}img / ${prefix}image <prompt> — buat gambar\n` +
-    `${prefix}brat <teks> — buat stiker teks ala brat\n` +
-    `${prefix}caption <topik> — buat caption medsos\n` +
-    `${prefix}story <tema> — buat cerita pendek\n` +
-    `${prefix}prompt <ide> — buat prompt gambar detail\n\n` +
+    `╭─「 ⬇️ DOWNLOADER 」\n` +
+    `│ ${prefix}play <judul> — cari + download mp3\n` +
+    `│ ${prefix}ytmp3 <link> — YouTube jadi mp3\n` +
+    `│ ${prefix}ytmp4 <link> — YouTube jadi mp4 (max 720p)\n` +
+    `│ ${prefix}tiktok <link> — download TikTok\n` +
+    `│ ${prefix}fbdl <link> — download video FB\n` +
+    `│ ${prefix}igdl <link> — download video IG\n` +
+    `╰─\n\n` +
 
-    `*🎙️ VOICE*\n` +
-    `reply VN + ${prefix}vn / ${prefix}transcribe — transkrip suara\n` +
-    `kirim VN polos (private) — otomatis ditranskrip + dijawab\n` +
-    `${prefix}tts <teks> — ubah teks jadi suara (max 300)\n\n` +
+    `╭─「 🎭 STICKER & MEDIA 」\n` +
+    `│ reply gambar + ${prefix}stiker — gambar jadi stiker\n` +
+    `│ ${prefix}stiker <teks> — teks jadi stiker\n` +
+    `│ reply stiker + ${prefix}toimg — stiker jadi gambar\n` +
+    `│ reply gambar + ${prefix}stickerwm <pack>|<author>\n` +
+    `│ ${prefix}attp / ${prefix}ttp <teks> — teks jadi stiker\n` +
+    `│ reply gambar + ${prefix}triggered — efek TRIGGERED\n` +
+    `│ ${prefix}emoji <emoji> — emoji jadi gambar\n` +
+    `│ ${prefix}iqc <teks> — quote ala iPhone\n` +
+    `╰─\n\n` +
 
-    `*📁 FILE*\n` +
-    `kirim PDF/DOCX/TXT (max 5MB) — otomatis diringkas\n` +
-    `${prefix}summarize (tanpa teks) — ringkas dokumen terakhir\n\n` +
+    `╭─「 👁️ VISION & VOICE 」\n` +
+    `│ ${prefix}ocr — baca teks dari gambar\n` +
+    `│ ${prefix}describe — deskripsikan gambar\n` +
+    `│ ${prefix}analyze — analisis gambar mendalam\n` +
+    `│ kirim gambar + caption ${prefix}ai <tanya>\n` +
+    `│ reply VN + ${prefix}vn / ${prefix}transcribe\n` +
+    `│ ${prefix}tts <teks> — teks jadi suara (max 300)\n` +
+    `╰─\n\n` +
 
-    `*🛠️ UTILITIES*\n` +
-    `${prefix}calc <rumus> — hitung cepat\n` +
-    `${prefix}convert <tanya> — konversi satuan/mata uang\n` +
-    `${prefix}qr <teks> — buat QR dari teks\n` +
-    `${prefix}ping — cek respon bot\n\n` +
+    `╭─「 🎨 CREATIVE 」\n` +
+    `│ ${prefix}img / ${prefix}image <prompt> — buat gambar\n` +
+    `│ ${prefix}brat <teks> — stiker teks ala brat\n` +
+    `│ ${prefix}caption <topik> — caption medsos\n` +
+    `│ ${prefix}story <tema> — cerita pendek\n` +
+    `│ ${prefix}prompt <ide> — prompt gambar detail\n` +
+    `│ ${prefix}nulis <teks> — tulis tangan di buku\n` +
+    `│ ${prefix}ssweb <url> — screenshot web\n` +
+    `╰─\n\n` +
 
-    `*🤖 BOT*\n` +
-    `${prefix}menu / ${prefix}help — tampilkan menu ini\n` +
-    `${prefix}about — info tentang bot\n` +
-    `${prefix}status — cek status bot\n` +
-    `${prefix}run <kode> — eksekusi JS (owner only)\n\n` +
+    `╭─「 🎉 FUN 」\n` +
+    `│ ${prefix}truth / ${prefix}dare — truth or dare\n` +
+    `│ ${prefix}tarot — kartu tarot harianmu\n` +
+    `│ ${prefix}zodiak <nama> — karakter zodiak\n` +
+    `│ ${prefix}ship <nama1> | <nama2> — cek kecocokan\n` +
+    `│ ${prefix}pantun — pantun random\n` +
+    `│ ${prefix}weton <tgl-bln-thn> — hitung weton Jawa\n` +
+    `│ ${prefix}ramal — ramalan hari ini\n` +
+    `│ ${prefix}keberuntungan [nama] — angka & persen hoki\n` +
+    `│ ${prefix}mimpi <kata> — tafsir mimpi\n` +
+    `│ ${prefix}karakter <nama> — baca karakter\n` +
+    `│ ${prefix}pilih <a> | <b> | <c> — pilihkan satu\n` +
+    `│ ${prefix}coinflip — lempar koin\n` +
+    `│ ${prefix}dadu [2-100] — lempar dadu\n` +
+    `│ ${prefix}8ball <tanya> — Magic 8-Ball\n` +
+    `│ ${prefix}puji [nama] — pujian random\n` +
+    `│ ${prefix}quotes — quote motivasi\n` +
+    `╰─\n\n` +
 
-    `*🎭 STIKER*\n` +
-    `reply gambar + ${prefix}stiker — gambar jadi stiker\n` +
-    `${prefix}stiker <teks> — teks jadi stiker\n\n` +
+    `╭─「 🎮 RPG 」\n` +
+    `│ ${prefix}dash — main SPEEDY DASH\n` +
+    `│ ${prefix}fish — memancing\n` +
+    `│ ${prefix}mine — menambang\n` +
+    `│ ${prefix}quest — misi harian\n` +
+    `│ ${prefix}profile — profil RPG kamu\n` +
+    `│ ${prefix}leaderboard — peringkat level\n` +
+    `│ ${prefix}heal — pulihkan HP\n` +
+    `╰─\n\n` +
 
-    `*👥 GRUP ADMIN*\n` +
-    `${prefix}tagall [teks] — sebut semua anggota\n` +
-    `${prefix}hidetag <teks> — sebut semua tanpa daftar\n` +
-    `${prefix}kick @user / reply — keluarkan anggota\n` +
-    `${prefix}add <nomor> — tambah anggota\n` +
-    `${prefix}promote / ${prefix}demote @user — admin/unadmin\n` +
-    `${prefix}linkgc — ambil link invite grup\n` +
-    `${prefix}group buka / ${prefix}group tutup — buka/tutup grup\n` +
-    `${prefix}setname <nama> — ganti nama grup\n` +
-    `${prefix}setdesc <teks> — ganti deskripsi grup\n` +
-    `${prefix}grouplist — daftar grup bot\n` +
-    `${prefix}listadmin — daftar admin grup\n` +
-    `${prefix}infogc — info grup\n\n` +
+    `╭─「 👥 GROUP 」\n` +
+    `│ ${prefix}tagall [teks] — sebut semua anggota\n` +
+    `│ ${prefix}hidetag <teks> — sebut tanpa daftar\n` +
+    `│ ${prefix}kick @user / reply — keluarkan anggota\n` +
+    `│ ${prefix}add <nomor> — tambah anggota\n` +
+    `│ ${prefix}promote / ${prefix}demote @user\n` +
+    `│ ${prefix}linkgc — link invite grup\n` +
+    `│ ${prefix}group buka / tutup — buka/tutup grup\n` +
+    `│ ${prefix}setname <nama> — ganti nama grup\n` +
+    `│ ${prefix}setdesc <teks> — ganti deskripsi grup\n` +
+    `│ ${prefix}grouplist — daftar grup bot\n` +
+    `│ ${prefix}listadmin — daftar admin grup\n` +
+    `│ ${prefix}infogc — info grup\n` +
+    `│ ${prefix}welcome on / off — sambutan anggota\n` +
+    `│ ${prefix}antilink on / off — hapus link otomatis\n` +
+    `│ ${prefix}antiflood on / off — anti spam\n` +
+    `│ ${prefix}badword add / del / list <kata>\n` +
+    `│ ${prefix}warn / ${prefix}unwarn / ${prefix}cekwarn @user\n` +
+    `│ ${prefix}groupset <opsi> — pengaturan grup\n` +
+    `│ ${prefix}afk [alasan] — mode AFK\n` +
+    `╰─\n\n` +
 
-    `*⚙️ GRUP SISTEM*\n` +
-    `${prefix}welcome on / off — sambutan anggota baru\n` +
-    `${prefix}antilink on / off — hapus link invite otomatis\n` +
-    `${prefix}badword add / del / list <kata> — filter kata kasar\n` +
-    `${prefix}level — cek XP & level kamu\n` +
-    `${prefix}leaderboard — peringkat level\n` +
-    `${prefix}limit — sisa limit harian\n` +
-    `${prefix}dompet — cek saldo\n` +
-    `${prefix}transfer @user <nominal> — kirim saldo\n` +
-    `${prefix}mining — nambang saldo (cooldown 5 mnt)\n` +
-    `${prefix}afk [alasan] — mode AFK + notif mention\n\n` +
+    `╭─「 💰 ECONOMY 」\n` +
+    `│ ${prefix}daily — klaim harian\n` +
+    `│ ${prefix}work — kerja dapat saldo\n` +
+    `│ ${prefix}bank — info bank\n` +
+    `│ ${prefix}balance — cek saldo\n` +
+    `│ ${prefix}level — cek XP & level\n` +
+    `│ ${prefix}limit — sisa limit harian\n` +
+    `│ ${prefix}dompet — cek saldo dompet\n` +
+    `│ ${prefix}transfer @user <nominal> — kirim saldo\n` +
+    `│ ${prefix}mining — nambang saldo (cooldown 5 mnt)\n` +
+    `╰─\n\n` +
 
-    `*📜 INFO*\n` +
-    `${prefix}rules — peraturan bot\n` +
-    `${prefix}animesaran — rekomendasi anime\n\n` +
-
-    `*🎞️ MEDIA*\n` +
-    `reply stiker + ${prefix}toimg — stiker jadi gambar\n` +
-    `reply gambar + ${prefix}stickerwm <pack>|<author> — stiker + watermark\n` +
-    `${prefix}attp / ${prefix}ttp <teks> — teks jadi stiker\n` +
-    `reply gambar + ${prefix}triggered — efek TRIGGERED\n` +
-    `${prefix}emoji <emoji> — emoji jadi gambar\n` +
-    `${prefix}iqc <teks> — quote ala iPhone\n` +
-    `${prefix}dash — main SPEEDY DASH v4\n\n` +
-
-    `*⬇️ DOWNLOADER*\n` +
-    `${prefix}play <judul> — cari + download mp3\n` +
-    `${prefix}ytmp3 <link> — YouTube jadi mp3\n` +
-    `${prefix}ytmp4 <link> — YouTube jadi mp4 (max 720p)\n` +
-    `${prefix}tiktok <link> — download TikTok\n` +
-    `${prefix}fbdl <link> — download video FB\n` +
-    `${prefix}igdl <link> — download video IG\n\n` +
-
-    `*🆓 INFO GRATIS*\n` +
-    `${prefix}jadwalsholat <kota> — jadwal sholat hari ini\n` +
-    `${prefix}quran <nomor> [jml ayat] — baca surat\n` +
-    `${prefix}gempa — info gempa BMKG\n` +
-    `${prefix}lirik <judul> — cari lirik lagu\n` +
-    `${prefix}shortlink <url> — perpendek link\n` +
-    `${prefix}kbbi <kata> — arti kata KBBI\n\n` +
-
-    `*🎉 FUN*\n` +
-    `${prefix}truth / ${prefix}dare — truth or dare\n` +
-    `${prefix}bisakah / ${prefix}apakah / ${prefix}kapankah <teks>\n` +
-    `${prefix}rate <teks> — nilai 0-100\n` +
-    `${prefix}pantun / ${prefix}fakta — pantun & fakta unik\n` +
-    `${prefix}alay / ${prefix}hilih <teks> — ubah gaya teks\n` +
-    `${prefix}jodoh <nama1> <nama2> — cek kecocokan\n` +
-    `${prefix}weton <tgl-bln-thn> — hitung weton Jawa\n` +
-    `${prefix}nulis <teks> — tulis tangan di buku\n` +
-    `${prefix}ssweb <url> — screenshot web\n\n` +
-
-    `_Private: chat bebas tanpa prefix. Grup: pakai "${prefix}" atau mention bot._`
+    `╭──────────────────────────────╮\n` +
+    `│ *Private* → chat bebas       │\n` +
+    `│ *Group*   → \`${prefix}\` / mention    │\n` +
+    `╰──────────────────────────────╯`
   );
 }
 
@@ -571,6 +612,23 @@ async function interim(sock, jid, m, text) {
   try {
     await sock.sendMessage(jid, { text }, { quoted: m });
   } catch {}
+}
+
+// Header image untuk .menu/.help (assets/menu-header.jpg).
+// Kalau file ADA: kirim sebagai image + caption = teks menu.
+// Kalau file TIDAK ada / gagal kirim: fallback kirim teks menu polos (bot tidak error).
+async function sendMenuWithHeader(sock, jid, m, text) {
+  try {
+    const headerPath = path.join(__dirname, '..', 'assets', 'menu-header.jpg');
+    if (!fs.existsSync(headerPath)) return await safeReply(sock, jid, text, m);
+    const buf = fs.readFileSync(headerPath);
+    if (!buf || !buf.length) return await safeReply(sock, jid, text, m);
+    await sock.sendMessage(jid, { image: buf, caption: text }, { quoted: m });
+    return;
+  } catch (e) {
+    console.error('menu-header', e?.message || e);
+    return await safeReply(sock, jid, text, m);
+  }
 }
 
 // Batasi janji dengan timeout (untuk API/download tanpa signal)
@@ -893,7 +951,7 @@ async function handleMessage(sock, m) {
 
     // ---------- MENU ----------
     if (cmd === 'menu' || cmd === 'help') {
-      return await safeReply(sock, jid, menuText(prefix), m);
+      return await sendMenuWithHeader(sock, jid, m, menuText(getDisplayName(m) || 'kak', prefix));
     }
 
     // ---------- .ai ----------
@@ -1459,14 +1517,28 @@ async function handleMessage(sock, m) {
 
     // ---------- 10. BOT: about / status ----------
     if (cmd === 'about') {
-      return await safeReply(
-        sock, jid,
-        `🤖 *AI Assistant (wa-ai-bot-b)*\n` +
-        `Asisten WhatsApp serba bisa: chat AI, gambar, stiker, transkrip VN, baca dokumen, info cuaca/berita, dan banyak lagi.\n\n` +
-        `🧩 Model: ${config.GEMINI_MODEL} + ${config.GROQ_CHAT_MODEL}\n` +
-        `💸 Fitur web & lokal gratis — AI butuh GEMINI/GROQ_API_KEY di .env.\n` +
-        `Ketik ${prefix}menu untuk daftar lengkap.`,
-        m
+      return await sendMenuWithHeader(
+        sock, jid, m,
+        `🤖 *SONEZZ AI ASSISTANT*\n\n` +
+        `*SONEZZ* adalah WhatsApp AI Assistant yang menggabungkan AI, utility, media, downloader, game, dan berbagai fitur lainnya dalam satu bot.\n\n` +
+        `*✦ FEATURES*\n\n` +
+        `💬 *AI Chat* — ngobrol, tanya jawab, curhat, dan memory\n` +
+        `🧠 *AI Tools* — explain, summarize, rewrite, translate, dan ideas\n` +
+        `💻 *Coding* — generate, debug, dan fix kode\n` +
+        `🌐 *Web & Info* — search, news, weather, dan berbagai utility\n` +
+        `🎨 *Creative* — generate gambar dan bantu membuat konten\n` +
+        `👁️ *Vision & Voice* — OCR, analisis gambar, transcribe, dan TTS\n` +
+        `📥 *Downloader* — download berbagai media\n` +
+        `🎲 *Fun & RPG* — game, random tools, quest, dan leaderboard\n` +
+        `💰 *Economy* — daily, work, bank, transfer, mining, dan progression\n` +
+        `👥 *Group Tools* — moderation dan pengaturan grup\n\n` +
+        `*✦ ABOUT*\n\n` +
+        `SONEZZ dikembangkan sebagai project WhatsApp bot dengan berbagai fitur yang bisa digunakan langsung dari chat.\n\n` +
+        `Setiap fitur dibuat untuk kebutuhan yang berbeda, mulai dari ngobrol dengan AI, mencari informasi, mengolah media dan dokumen, sampai bermain dan mengelola grup.\n\n` +
+        `Ketik ${prefix}menu untuk melihat seluruh command yang tersedia.\n\n` +
+        `━━━━━━━━━━━━━━━━━━\n` +
+        `*SONEZZ AI ASSISTANT*\n` +
+        `_WhatsApp AI · Utility · Media · Fun_`
       );
     }
     if (cmd === 'status') {
@@ -1905,19 +1977,34 @@ async function handleMessage(sock, m) {
     // ---------- LANE FUN (lib/fun.js, murni lokal) ----------
     if (cmd === 'truth') return await safeReply(sock, jid, funLane.truth(), m);
     if (cmd === 'dare') return await safeReply(sock, jid, funLane.dare(), m);
-    if (cmd === 'pantun') return await safeReply(sock, jid, funLane.pantun(), m);
-    if (cmd === 'fakta' || cmd === 'fact') return await safeReply(sock, jid, funLane.fakta(), m);
-    if (cmd === 'bisakah' || cmd === 'bisa') return await safeReply(sock, jid, funLane.bisakah(args), m);
-    if (cmd === 'apakah') return await safeReply(sock, jid, funLane.apakah(args), m);
-    if (cmd === 'kapankah' || cmd === 'kapan') return await safeReply(sock, jid, funLane.kapankah(args), m);
-    if (cmd === 'rate' || cmd === 'nilai') return await safeReply(sock, jid, funLane.rate(args), m);
-    if (cmd === 'alay') return await safeReply(sock, jid, funLane.alay(args), m);
-    if (cmd === 'hilih') return await safeReply(sock, jid, funLane.hilih(args), m);
-    if (cmd === 'jodoh' || cmd === 'jodohku') {
-      const [n1, n2] = String(args || '').split(/\s+/).filter(Boolean);
-      return await safeReply(sock, jid, funLane.jodoh(n1, n2), m);
+    if (cmd === 'tarot') return await safeReply(sock, jid, funLane.tarot(), m);
+    if (cmd === 'zodiak') return await safeReply(sock, jid, funLane.zodiak(args), m);
+    if (cmd === 'ship') {
+      let n1 = '';
+      let n2 = '';
+      if (String(args || '').includes('|')) {
+        const ps = String(args || '').split('|').map((x) => String(x || '').trim()).filter(Boolean);
+        n1 = ps[0] || '';
+        n2 = ps[1] || '';
+      } else {
+        const ps = String(args || '').split(/\s+/).filter(Boolean);
+        n1 = ps[0] || '';
+        n2 = ps[1] || '';
+      }
+      return await safeReply(sock, jid, funLane.ship(n1, n2), m);
     }
+    if (cmd === 'pantun') return await safeReply(sock, jid, funLane.pantun(), m);
     if (cmd === 'weton') return await safeReply(sock, jid, funLane.weton(args), m);
+    if (cmd === 'ramal') return await safeReply(sock, jid, funLane.ramal(), m);
+    if (cmd === 'keberuntungan' || cmd === 'hoki') return await safeReply(sock, jid, funLane.keberuntungan(args), m);
+    if (cmd === 'mimpi') return await safeReply(sock, jid, funLane.mimpi(args), m);
+    if (cmd === 'karakter') return await safeReply(sock, jid, funLane.karakter(args), m);
+    if (cmd === 'pilih') return await safeReply(sock, jid, funLane.pilih(args), m);
+    if (cmd === 'coinflip' || cmd === 'koin') return await safeReply(sock, jid, funLane.coinflip(), m);
+    if (cmd === 'dadu') return await safeReply(sock, jid, funLane.dadu(args), m);
+    if (cmd === '8ball') return await safeReply(sock, jid, funLane.eightball(args), m);
+    if (cmd === 'puji') return await safeReply(sock, jid, funLane.puji(args), m);
+    if (cmd === 'quotes' || cmd === 'quote') return await safeReply(sock, jid, funLane.quotes(), m);
 
     // ---------- LANE NULIS & SSWEB ----------
     if (cmd === 'nulis') {
