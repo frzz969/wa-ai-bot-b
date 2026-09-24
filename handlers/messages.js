@@ -435,10 +435,10 @@ function menuText(pushName, prefix) {
     tanggal = new Date().toDateString();
   }
   return (
-    `╭──────────────────────────────╮\n` +
-    `│      🤖 *SONEZZ AI ASSISTANT* │\n` +
-    `│       AI · Media · Utility    │\n` +
-    `╰──────────────────────────────╯\n\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `🤖 *SONEZZ AI ASSISTANT*\n` +
+    `AI · Media · Utility\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
     `Halo kak _${pushName}_ 👋, ada yang bisa dibantu?\n` +
     `🕐 ${tanggal} · 🔑 Prefix \`${prefix}\`\n\n` +
 
@@ -538,7 +538,7 @@ function menuText(pushName, prefix) {
     `│ ${prefix}pantun — pantun random\n` +
     `│ ${prefix}weton <tgl-bln-thn> — hitung weton Jawa\n` +
     `│ ${prefix}ramal — ramalan hari ini\n` +
-    `│ ${prefix}keberuntungan [nama] — angka & persen hoki\n` +
+    `│ ${prefix}keberuntungan [nama] — persen hoki\n` +
     `│ ${prefix}mimpi <kata> — tafsir mimpi\n` +
     `│ ${prefix}karakter <nama> — baca karakter\n` +
     `│ ${prefix}pilih <a> | <b> | <c> — pilihkan satu\n` +
@@ -590,13 +590,13 @@ function menuText(pushName, prefix) {
     `│ ${prefix}limit — sisa limit harian\n` +
     `│ ${prefix}dompet — cek saldo dompet\n` +
     `│ ${prefix}transfer @user <nominal> — kirim saldo\n` +
-    `│ ${prefix}mining — nambang saldo (cooldown 5 mnt)\n` +
+    `│ ${prefix}mining — nambang saldo (cd 5 menit)\n` +
     `╰─\n\n` +
 
-    `╭──────────────────────────────╮\n` +
-    `│ *Private* → chat bebas       │\n` +
-    `│ *Group*   → \`${prefix}\` / mention    │\n` +
-    `╰──────────────────────────────╯`
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+    `*Private* → chat bebas\n` +
+    `*Group* → \`${prefix}\` / mention bot\n` +
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
   );
 }
 
