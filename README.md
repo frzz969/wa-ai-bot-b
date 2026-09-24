@@ -50,6 +50,25 @@ nano .env
 npm start
 ```
 
+### 🩹 Khusus Termux: kalau `sharp` error
+
+Sharp (buat stiker) sering gagal install di Termux. Kalau `npm install` error soal sharp / `node -e "console.log(require('sharp').versions)"` gagal, jalankan ini:
+
+```bash
+pkg update
+pkg upgrade
+pkg install nodejs-lts libvips
+cd ~/wa-ai-bot-b
+npm install-scripts approve sharp
+unset SHARP_IGNORE_GLOBAL_LIBVIPS
+rm -rf node_modules/sharp
+SHARP_FORCE_GLOBAL_LIBVIPS=1 \
+PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig:$PREFIX/share/pkgconfig \
+npm install --foreground-scripts sharp@0.33.5
+node -e "console.log(require('sharp').versions)"
+npm start
+```
+
 ## 🔑 Isi `.env`
 
 ```env
