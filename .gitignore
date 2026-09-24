@@ -1,2 +1,5 @@
 .env
 node_modules/
+session/
+data/
+database/backup-*/

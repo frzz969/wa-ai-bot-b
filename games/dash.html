@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>SPEEDY DASH v4</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0b1020; color: #fff; font-family: Arial, Helvetica, sans-serif;
+    display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 12px; }
+  h1 { font-size: 22px; letter-spacing: 2px; margin: 8px 0; color: #ffd54a; }
+  #hud { display: flex; gap: 16px; margin-bottom: 8px; font-size: 15px; }
+  #hud b { color: #7cf7ff; }
+  canvas { background: linear-gradient(#141b3d, #0b1020 70%); border: 2px solid #2b3a7a;
+    border-radius: 10px; max-width: 100%; touch-action: none; }
+  #msg { margin-top: 10px; font-size: 14px; color: #9fb3ff; text-align: center; min-height: 20px; }
+  button { margin-top: 10px; padding: 10px 22px; font-size: 15px; font-weight: bold;
+    border: none; border-radius: 8px; background: #ffd54a; color: #222; cursor: pointer; }
+  button:active { transform: scale(.96); }
+  small { margin-top: 8px; color: #5f6da3; }
+</style>
+</head>
+<body>
+<h1>⚡ SPEEDY DASH v4 ⚡</h1>
+<div id="hud"><span>SKOR <b id="score">0</b></span><span>BEST <b id="best">0</b></span><span>KECEPATAN <b id="speed">1x</b></span></div>
+<canvas id="game" width="480" height="240"></canvas>
+<div id="msg">Ketuk / tekan SPASI / ↑ untuk lompat. Hindari balok merah!</div>
+<button id="restart">⟳ MAIN LAGI</button>
+<small>SPEEDY DASH v4 — file statis offline, tanpa server.</small>
+<script>
+(function () {
+  var cv = document.getElementById('game');
+  var ctx = cv.getContext('2d');
+  var scoreEl = document.getElementById('score');
+  var bestEl = document.getElementById('best');
+  var speedEl = document.getElementById('speed');
+  var msgEl = document.getElementById('msg');
+  var W = cv.width, H = cv.height, GROUND = H - 36;
+
+  var best = 0;
+  try { best = Number(localStorage.getItem('speedy-dash-best') || 0); } catch (e) {}
+  bestEl.textContent = best;
+
+  var player, obstacles, speed, score, over, frame;
+
+  function reset() {
+    player = { x: 50, y: GROUND - 28, w: 26, h: 28, vy: 0, jumping: false };
+    obstacles = [];
+    speed = 4; score = 0; over = false; frame = 0;
+    msgEl.textContent = 'Ketuk / tekan SPASI / ↑ untuk lompat. Hindari balok merah!';
+    loop();
+  }
+
+  function jump() {
+    if (over) return;
+    if (!player.jumping) { player.vy = -11; player.jumping = true; }
+  }
+
+  function spawn() {
+    var h = 22 + Math.random() * 26;
+    obstacles.push({ x: W, y: GROUND - h, w: 18 + Math.random() * 14, h: h });
+  }
+
+  function hit(a, b) {
+    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  }
+
+  function loop() {
+    if (over) return;
+    frame++;
+    // fisika pemain
+    player.vy += 0.6;
+    player.y += player.vy;
+    if (player.y >= GROUND - player.h) { player.y = GROUND - player.h; player.vy = 0; player.jumping = false; }
+    // spawn rintangan
+    if (frame % Math.max(28, 70 - Math.floor(speed * 4)) === 0) spawn();
+    // gerak rintangan + skor
+    for (var i = obstacles.length - 1; i >= 0; i--) {
+      obstacles[i].x -= speed;
+      if (obstacles[i].x + obstacles[i].w < 0) { obstacles.splice(i, 1); score += 10; }
+      else if (hit(player, obstacles[i])) { return gameOver(); }
+    }
+    score += 0.2;
+    speed = Math.min(11, 4 + score / 600);
+    draw();
+    scoreEl.textContent = Math.floor(score);
+    speedEl.textContent = (speed / 4).toFixed(1) + 'x';
+    requestAnimationFrame(loop);
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    // tanah
+    ctx.fillStyle = '#22306e';
+    ctx.fillRect(0, GROUND, W, H - GROUND);
+    ctx.fillStyle = '#ffd54a';
+    ctx.fillRect(0, GROUND, W, 3);
+    // pemain (sonic ball)
+    ctx.fillStyle = '#2e9bff';
+    ctx.beginPath();
+    ctx.arc(player.x + player.w / 2, player.y + player.h / 2, player.w / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(player.x + 14, player.y + 7, 6, 6);
+    // rintangan
+    ctx.fillStyle = '#ff4d4d';
+    for (var i = 0; i < obstacles.length; i++) {
+      var o = obstacles[i];
+      ctx.fillRect(o.x, o.y, o.w, o.h);
+    }
+  }
+
+  function gameOver() {
+    over = true;
+    var s = Math.floor(score);
+    if (s > best) {
+      best = s;
+      try { localStorage.setItem('speedy-dash-best', String(best)); } catch (e) {}
+      bestEl.textContent = best;
+    }
+    draw();
+    msgEl.textContent = '💥 GAME OVER! Skor: ' + s + '. Tekan MAIN LAGI.';
+  }
+
+  document.getElementById('restart').addEventListener('click', reset);
+  window.addEventListener('keydown', function (e) {
+    if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); jump(); }
+  });
+  cv.addEventListener('pointerdown', jump);
+  reset();
+})();
+</script>
+</body>
+</html>

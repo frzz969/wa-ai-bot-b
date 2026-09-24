@@ -8,6 +8,120 @@ const { runSandboxed } = require('../lib/sandbox');
 const { ddgSearch, googleNews, getWeather, getLocalTime, wikiSummary } = require('../lib/tools');
 const { extractDocText } = require('../lib/files');
 const { ttsEdge, googleTTSChunk } = require('../lib/tts');
+// ---------- LANE INTEGRASI AKHIR (handler sudah ada, tinggal panggil) ----------
+const groupLane = require('../lib/group');
+const systems = require('../lib/systems');
+const { rulesText, animeSaranText } = require('../lib/info');
+const mediaTools = require('../lib/media-tools');
+const { handleIqc } = require('../lib/iqc');
+const { isDashCommand, handleDash } = require('../lib/dash');
+const dlLane = require('../lib/downloader');
+const freeInfo = require('../lib/freeinfo');
+const funLane = require('../lib/fun');
+const { handleNulis } = require('../lib/nulis');
+const { handleSsweb } = require('../lib/ssweb');
+// ---------- FASE 1: Router tipis + guards (src/commands + src/guards) ----------
+// Dimuat toleran-gagal: kalau modul baru bermasalah, bot tetap jalan via handler lama.
+let registry = null;
+let runPipeline = null;
+try {
+  registry = require('../src/commands');
+  ({ runPipeline } = require('../src/guards/pipeline'));
+} catch (e) {
+  console.error('[router] modul baru gagal dimuat, fallback handler lama:', e?.message || e);
+}
+// ---------- FASE 2: Safety hook anti-spam (src/extensions/safety) + scheduler ----------
+// Dimuat toleran-gagal: kalau modul bermasalah, bot tetap jalan via handler lama.
+let trySafety = null;
+try {
+  ({ trySafety } = require('../src/extensions/safety'));
+} catch (e) {
+  console.error('[safety] modul safety gagal dimuat, proteksi nonaktif:', e?.message || e);
+}
+// Scheduler Fase 2: bersih-bersih periodik tiap 10 menit (auto-start saat di-require).
+try {
+  require('../src/extensions/maintenance/scheduler');
+} catch (e) {
+  console.error('[scheduler] gagal start:', e?.message || e);
+}
+
+const ROUTER_PREFIXES = ['.', '!', '#'];
+
+// Bangun ctx standar command: { sender, pushName, args, mentions, isOwner, isAdmin, isBotAdmin, reply, react, ... }.
+// isAdmin/isBotAdmin best-effort via groupMetadata (gagal -> false, non-fatal).
+async function buildCommandCtx(sock, m, jid, isGroup, sender, body) {
+  const parts = String(body || '').split(/\s+/).filter(Boolean);
+  const args = parts.slice(1).join(' ').trim();
+  const mentions = getMentionList(m);
+  const owner = isOwner(sender, jid);
+  let admin = false;
+  let botAdmin = false;
+  if (isGroup) {
+    try {
+      const meta = await sock.groupMetadata(jid);
+      const list = Array.isArray(meta?.participants) ? meta.participants : [];
+      const botNum = botJidNormalized(sock);
+      for (const p of list) {
+        const pid = String(p?.id || '');
+        const pNum = pid.split('@')[0].split(':')[0];
+        const isAdm = p?.admin === 'admin' || p?.admin === 'superadmin';
+        if (pid === sender && isAdm) admin = true;
+        if (pNum && botNum && pNum === botNum && isAdm) botAdmin = true;
+      }
+    } catch {}
+  }
+  const reply = (text) => safeReply(sock, jid, text, m);
+  const react = (emoji) => sock.sendMessage(jid, { react: { text: String(emoji || ''), key: m.key } }).catch(() => {});
+  return {
+    sock, m, jid, sender,
+    pushName: getDisplayName(m),
+    args, text: args, mentions,
+    isGroup, isOwner: owner, isAdmin: admin, isBotAdmin: botAdmin,
+    reply, react,
+  };
+}
+
+// Coba tangani via registry baru. Return true bila sudah ditangani (panggil return di caller).
+// Return false -> lanjutkan ke handler lama (fallback).
+async function tryNewRouter(sock, m, jid, isGroup, sender, raw) {
+  if (!registry || !runPipeline) return false;
+  const ch = String(raw || '').charAt(0);
+  if (!ROUTER_PREFIXES.includes(ch)) return false;
+  const body = String(raw || '').slice(1).trim();
+  if (!body) return false;
+  const name = body.split(/\s+/)[0].toLowerCase();
+  let command = null;
+  try {
+    command = registry.getCommand(name);
+  } catch {
+    return false;
+  }
+  if (!command) return false; // tidak ketemu -> fallback handler lama
+  let ctx;
+  try {
+    ctx = await buildCommandCtx(sock, m, jid, isGroup, sender, body);
+  } catch (e) {
+    console.error('[router] build ctx gagal:', e?.message || e);
+    return false;
+  }
+  let ok = false;
+  try {
+    ok = await runPipeline(ctx, command);
+  } catch (e) {
+    console.error('[router] pipeline gagal:', e?.message || e);
+    return false;
+  }
+  if (!ok) return true; // diblokir guard (sudah di-reply guard) -> anggap tertangani
+  try {
+    await command.execute(ctx);
+  } catch (e) {
+    console.error(`[router] execute ${command.name} gagal:`, e?.message || e);
+    try {
+      await ctx.reply('❌ Command gagal dijalankan. Coba lagi sebentar ya.');
+    } catch {}
+  }
+  return true;
+}
 
 const runCooldown = new Map(); // sender -> timestamp khusus .run (5 dtk)
 const lastBotImage = new Map(); // key jid|sender -> Buffer (hasil .img/.brat terakhir)
@@ -375,6 +489,72 @@ function menuText(prefix) {
     `reply gambar + ${prefix}stiker — gambar jadi stiker\n` +
     `${prefix}stiker <teks> — teks jadi stiker\n\n` +
 
+    `*👥 GRUP ADMIN*\n` +
+    `${prefix}tagall [teks] — sebut semua anggota\n` +
+    `${prefix}hidetag <teks> — sebut semua tanpa daftar\n` +
+    `${prefix}kick @user / reply — keluarkan anggota\n` +
+    `${prefix}add <nomor> — tambah anggota\n` +
+    `${prefix}promote / ${prefix}demote @user — admin/unadmin\n` +
+    `${prefix}linkgc — ambil link invite grup\n` +
+    `${prefix}group buka / ${prefix}group tutup — buka/tutup grup\n` +
+    `${prefix}setname <nama> — ganti nama grup\n` +
+    `${prefix}setdesc <teks> — ganti deskripsi grup\n` +
+    `${prefix}grouplist — daftar grup bot\n` +
+    `${prefix}listadmin — daftar admin grup\n` +
+    `${prefix}infogc — info grup\n\n` +
+
+    `*⚙️ GRUP SISTEM*\n` +
+    `${prefix}welcome on / off — sambutan anggota baru\n` +
+    `${prefix}antilink on / off — hapus link invite otomatis\n` +
+    `${prefix}badword add / del / list <kata> — filter kata kasar\n` +
+    `${prefix}level — cek XP & level kamu\n` +
+    `${prefix}leaderboard — peringkat level\n` +
+    `${prefix}limit — sisa limit harian\n` +
+    `${prefix}dompet — cek saldo\n` +
+    `${prefix}transfer @user <nominal> — kirim saldo\n` +
+    `${prefix}mining — nambang saldo (cooldown 5 mnt)\n` +
+    `${prefix}afk [alasan] — mode AFK + notif mention\n\n` +
+
+    `*📜 INFO*\n` +
+    `${prefix}rules — peraturan bot\n` +
+    `${prefix}animesaran — rekomendasi anime\n\n` +
+
+    `*🎞️ MEDIA*\n` +
+    `reply stiker + ${prefix}toimg — stiker jadi gambar\n` +
+    `reply gambar + ${prefix}stickerwm <pack>|<author> — stiker + watermark\n` +
+    `${prefix}attp / ${prefix}ttp <teks> — teks jadi stiker\n` +
+    `reply gambar + ${prefix}triggered — efek TRIGGERED\n` +
+    `${prefix}emoji <emoji> — emoji jadi gambar\n` +
+    `${prefix}iqc <teks> — quote ala iPhone\n` +
+    `${prefix}dash — main SPEEDY DASH v4\n\n` +
+
+    `*⬇️ DOWNLOADER*\n` +
+    `${prefix}play <judul> — cari + download mp3\n` +
+    `${prefix}ytmp3 <link> — YouTube jadi mp3\n` +
+    `${prefix}ytmp4 <link> — YouTube jadi mp4 (max 720p)\n` +
+    `${prefix}tiktok <link> — download TikTok\n` +
+    `${prefix}fbdl <link> — download video FB\n` +
+    `${prefix}igdl <link> — download video IG\n\n` +
+
+    `*🆓 INFO GRATIS*\n` +
+    `${prefix}jadwalsholat <kota> — jadwal sholat hari ini\n` +
+    `${prefix}quran <nomor> [jml ayat] — baca surat\n` +
+    `${prefix}gempa — info gempa BMKG\n` +
+    `${prefix}lirik <judul> — cari lirik lagu\n` +
+    `${prefix}shortlink <url> — perpendek link\n` +
+    `${prefix}kbbi <kata> — arti kata KBBI\n\n` +
+
+    `*🎉 FUN*\n` +
+    `${prefix}truth / ${prefix}dare — truth or dare\n` +
+    `${prefix}bisakah / ${prefix}apakah / ${prefix}kapankah <teks>\n` +
+    `${prefix}rate <teks> — nilai 0-100\n` +
+    `${prefix}pantun / ${prefix}fakta — pantun & fakta unik\n` +
+    `${prefix}alay / ${prefix}hilih <teks> — ubah gaya teks\n` +
+    `${prefix}jodoh <nama1> <nama2> — cek kecocokan\n` +
+    `${prefix}weton <tgl-bln-thn> — hitung weton Jawa\n` +
+    `${prefix}nulis <teks> — tulis tangan di buku\n` +
+    `${prefix}ssweb <url> — screenshot web\n\n` +
+
     `_Private: chat bebas tanpa prefix. Grup: pakai "${prefix}" atau mention bot._`
   );
 }
@@ -533,6 +713,15 @@ async function handleMessage(sock, m) {
     const hasPrefix = raw.startsWith(prefix);
     const mentioned = isMentionToBot(m, sock);
 
+    // ---------- FASE 2 SAFETY: anti-flood/anti-link/mute SEBELUM router (toleran-gagal) ----------
+    // Wajib SEBELUM early-return grup non-prefix di bawah agar spam teks biasa ikut dicek.
+    // trySafety true -> pesan sudah ditangani (hapus/warn), stop di sini.
+    try {
+      if (isGroup && trySafety && await trySafety(sock, m, { jid, sender: getSender(m), text: raw })) return;
+    } catch (e) {
+      console.error('[safety]', e?.message || e);
+    }
+
     // Grup: hanya respon jika prefix / mention bot (dokumen ikut aturan yang sama)
     if (isGroup && !hasPrefix && !mentioned) {
       if (!isDocMsg) return;
@@ -556,6 +745,70 @@ async function handleMessage(sock, m) {
     const start = Date.now(); // untuk .ping (RTT)
 
     await sock.sendPresenceUpdate('composing', jid).catch(() => {});
+
+    // ---------- FASE 1 ROUTER: registry baru dulu, fallback handler lama ----------
+    // Hanya prefix [. ! #] + command terdaftar yang diambil alih; sisanya jatuh ke logika lama.
+    try {
+      if (await tryNewRouter(sock, m, jid, isGroup, sender, raw)) return;
+    } catch (e) {
+      console.error('[router]', e?.message || e);
+    }
+
+    // ---------- XP OTOMATIS 5-10 per pesan (non-fatal, tak ganggu flow AI) ----------
+    try {
+      const lv = systems.addXp(sender, 5 + Math.floor(Math.random() * 6));
+      if (lv && lv.leveledUp) {
+        await sock.sendMessage(
+          jid,
+          { text: `🎉 @${String(sender).split('@')[0]} naik ke *Lv.${lv.level}!*`, mentions: [String(sender)] },
+          { quoted: m }
+        ).catch(() => {});
+      }
+    } catch {}
+
+    // ---------- AUTO-MODERASI GRUP: AFK / antilink / badword (non-fatal) ----------
+    // Dilewati untuk command (ber-prefix) agar .badword/.linkgc tak kena hapus.
+    if (isGroup && !hasPrefix) {
+      try {
+        // AFK: pengirim kembali → hapus status + kabari.
+        if (systems.getAfk(sender)) {
+          systems.clearAfk(sender);
+          await sock.sendMessage(
+            jid,
+            { text: `👋 @${String(sender).split('@')[0]} sudah kembali dari AFK.` },
+            { quoted: m }
+          ).catch(() => {});
+        }
+        // AFK: mention user yang sedang AFK → notifikasi.
+        const afkHit = systems.checkAfk(getMentionList(m));
+        if (afkHit.length) {
+          const lines = afkHit.map((a) => `• @${String(a.id).split('@')[0]} AFK: ${a.reason}`).join('\n');
+          await sock.sendMessage(jid, { text: `💤 *AFK:*\n${lines}` }, { quoted: m }).catch(() => {});
+        }
+        // Antilink + badword: lewati admin grup.
+        let senderIsAdmin = false;
+        try {
+          senderIsAdmin = await groupLane.isAdmin(sock, jid, sender);
+        } catch {}
+        if (!senderIsAdmin) {
+          if (systems.isAntilinkOn(jid) && systems.containsInviteLink(raw)) {
+            try {
+              await sock.sendMessage(jid, { delete: m.key }).catch(() => {});
+            } catch {}
+            await safeReply(sock, jid, `🔗 @${String(sender).split('@')[0]} link invite grup tidak diizinkan di sini!`, m);
+            return;
+          }
+          const bw = systems.containsBadword(raw);
+          if (bw) {
+            try {
+              await sock.sendMessage(jid, { delete: m.key }).catch(() => {});
+            } catch {}
+            await safeReply(sock, jid, `🚫 Kata "${bw}" tidak diizinkan di grup ini!`, m);
+            return;
+          }
+        }
+      } catch {}
+    }
 
     // ---------- FILE: dokumen otomatis (pdf/docx/txt, max ~5MB) ----------
     if (isDocMsg) {
@@ -1265,6 +1518,419 @@ async function handleMessage(sock, m) {
       }
     }
 
+    // ---------- LANE GRUP ADMIN (lib/group.js) ----------
+    if (cmd === 'tagall') {
+      const g = groupLane.guardGroup(jid);
+      if (g) return await safeReply(sock, jid, g, m);
+      const ga = await groupLane.guardAdmin(sock, jid, sender);
+      if (ga) return await safeReply(sock, jid, ga, m);
+      try {
+        await groupLane.tagall(sock, jid, m, args);
+      } catch (e) {
+        console.error('tagall', e?.message || e);
+        return await safeReply(sock, jid, '❌ Gagal tagall. Coba lagi.', m);
+      }
+      return;
+    }
+    if (cmd === 'hidetag' || cmd === 'hideteg') {
+      const g = groupLane.guardGroup(jid);
+      if (g) return await safeReply(sock, jid, g, m);
+      const ga = await groupLane.guardAdmin(sock, jid, sender);
+      if (ga) return await safeReply(sock, jid, ga, m);
+      if (!args) return await safeReply(sock, jid, `Contoh: ${prefix}hidetag Halo semua!`, m);
+      try {
+        await groupLane.hidetag(sock, jid, args, m);
+      } catch (e) {
+        console.error('hidetag', e?.message || e);
+        return await safeReply(sock, jid, '❌ Gagal hidetag. Coba lagi.', m);
+      }
+      return;
+    }
+    if (cmd === 'kick') {
+      const ga = await groupLane.guardAdmin(sock, jid, sender);
+      if (ga) return await safeReply(sock, jid, ga, m);
+      const gb = await groupLane.guardBotAdmin(sock, jid);
+      if (gb) return await safeReply(sock, jid, gb, m);
+      const targets = groupLane.resolveTargets(m, args);
+      if (!targets.length) return await safeReply(sock, jid, `Contoh: ${prefix}kick @user (atau reply pesannya)`, m);
+      try {
+        await groupLane.kick(sock, jid, targets);
+        return await safeReply(sock, jid, `✅ ${targets.length} anggota dikeluarkan.`, m);
+      } catch (e) {
+        console.error('kick', e?.message || e);
+        return await safeReply(sock, jid, '❌ Gagal kick. Pastikan target valid & bot admin.', m);
+      }
+    }
+    if (cmd === 'add') {
+      const ga = await groupLane.guardAdmin(sock, jid, sender);
+      if (ga) return await safeReply(sock, jid, ga, m);
+      const gb = await groupLane.guardBotAdmin(sock, jid);
+      if (gb) return await safeReply(sock, jid, gb, m);
+      const nums = (String(args || '').match(/\d{8,16}/g) || []).map(String);
+      if (!nums.length) return await safeReply(sock, jid, `Contoh: ${prefix}add 6281234567890`, m);
+      try {
+        await groupLane.addMembers(sock, jid, nums);
+        return await safeReply(sock, jid, `✅ Undangan dikirim ke ${nums.length} nomor.`, m);
+      } catch (e) {
+        console.error('add', e?.message || e);
+        return await safeReply(sock, jid, '❌ Gagal add. Nomor harus terdaftar WA & mengizinkan ditambah.', m);
+      }
+    }
+    if (cmd === 'promote' || cmd === 'demote') {
+      const ga = await groupLane.guardAdmin(sock, jid, sender);
+      if (ga) return await safeReply(sock, jid, ga, m);
+      const gb = await groupLane.guardBotAdmin(sock, jid);
+      if (gb) return await safeReply(sock, jid, gb, m);
+      const targets = groupLane.resolveTargets(m, args);
+      if (!targets.length) return await safeReply(sock, jid, `Contoh: ${prefix}${cmd} @user`, m);
+      try {
+        if (cmd === 'promote') await groupLane.promote(sock, jid, targets);
+        else await groupLane.demote(sock, jid, targets);
+        return await safeReply(sock, jid, `✅ ${cmd} berhasil untuk ${targets.length} anggota.`, m);
+      } catch (e) {
+        console.error(cmd, e?.message || e);
+        return await safeReply(sock, jid, `❌ Gagal ${cmd}. Coba lagi.`, m);
+      }
+    }
+    if (cmd === 'linkgc' || cmd === 'linkgrup' || cmd === 'linkgroup') {
+      const ga = await groupLane.guardAdmin(sock, jid, sender);
+      if (ga) return await safeReply(sock, jid, ga, m);
+      try {
+        const link = await groupLane.getInviteLink(sock, jid);
+        return await safeReply(sock, jid, `🔗 *Link grup:*\n${link}`, m);
+      } catch (e) {
+        console.error('linkgc', e?.message || e);
+        return await safeReply(sock, jid, '❌ Gagal ambil link grup. Pastikan bot admin.', m);
+      }
+    }
+    if (cmd === 'group' || cmd === 'grup') {
+      const ga = await groupLane.guardAdmin(sock, jid, sender);
+      if (ga) return await safeReply(sock, jid, ga, m);
+      const gb = await groupLane.guardBotAdmin(sock, jid);
+      if (gb) return await safeReply(sock, jid, gb, m);
+      const sub = String(args || '').trim().toLowerCase();
+      try {
+        if (sub === 'buka' || sub === 'open') {
+          await groupLane.openGroup(sock, jid);
+          return await safeReply(sock, jid, '✅ Grup dibuka — semua anggota bisa chat.', m);
+        }
+        if (sub === 'tutup' || sub === 'close') {
+          await groupLane.closeGroup(sock, jid);
+          return await safeReply(sock, jid, '🔒 Grup ditutup — hanya admin yang bisa chat.', m);
+        }
+        return await safeReply(sock, jid, `Contoh: ${prefix}group buka / ${prefix}group tutup`, m);
+      } catch (e) {
+        console.error('group', e?.message || e);
+        return await safeReply(sock, jid, '❌ Gagal ubah setelan grup.', m);
+      }
+    }
+    if (cmd === 'setname' || cmd === 'setdesc') {
+      const ga = await groupLane.guardAdmin(sock, jid, sender);
+      if (ga) return await safeReply(sock, jid, ga, m);
+      const gb = await groupLane.guardBotAdmin(sock, jid);
+      if (gb) return await safeReply(sock, jid, gb, m);
+      if (!args) return await safeReply(sock, jid, `Contoh: ${prefix}${cmd} Teks baru`, m);
+      try {
+        if (cmd === 'setname') await groupLane.setGroupName(sock, jid, args);
+        else await groupLane.setGroupDesc(sock, jid, args);
+        return await safeReply(sock, jid, `✅ ${cmd} berhasil.`, m);
+      } catch (e) {
+        console.error(cmd, e?.message || e);
+        return await safeReply(sock, jid, `❌ Gagal ${cmd}.`, m);
+      }
+    }
+    if (cmd === 'grouplist' || cmd === 'listgc' || cmd === 'listgrup') {
+      try {
+        const all = await sock.groupFetchAllParticipating();
+        const list = Object.values(all || {});
+        if (!list.length) return await safeReply(sock, jid, '📋 Bot belum ikut grup mana pun.', m);
+        const out = list.map((gr, i) => `${i + 1}. *${gr.subject || '-'}* (${(gr.participants || []).length} anggota)`).join('\n');
+        return await safeReply(sock, jid, `📋 *Grup bot (${list.length}):*\n${out}`, m);
+      } catch (e) {
+        console.error('grouplist', e?.message || e);
+        return await safeReply(sock, jid, '❌ Gagal ambil daftar grup.', m);
+      }
+    }
+    if (cmd === 'listadmin' || cmd === 'adminlist') {
+      const g = groupLane.guardGroup(jid);
+      if (g) return await safeReply(sock, jid, g, m);
+      try {
+        const parts = await groupLane.getParticipants(sock, jid);
+        const admins = parts.filter(groupLane.isParticipantAdmin);
+        if (!admins.length) return await safeReply(sock, jid, 'Belum ada admin terdeteksi.', m);
+        const ids = admins.map((p) => String(p.id));
+        const text = '👑 *Admin grup:*\n' + ids.map((id, i) => `${i + 1}. @${id.split('@')[0]}`).join('\n');
+        await sock.sendMessage(jid, { text, mentions: ids }, { quoted: m });
+      } catch (e) {
+        console.error('listadmin', e?.message || e);
+        return await safeReply(sock, jid, '❌ Gagal ambil daftar admin.', m);
+      }
+      return;
+    }
+    if (cmd === 'infogc' || cmd === 'infogrup' || cmd === 'infogroup') {
+      const g = groupLane.guardGroup(jid);
+      if (g) return await safeReply(sock, jid, g, m);
+      try {
+        const meta = await groupLane.getGroupMetadata(sock, jid);
+        return await safeReply(sock, jid, groupLane.groupInfoText(meta), m);
+      } catch (e) {
+        console.error('infogc', e?.message || e);
+        return await safeReply(sock, jid, '❌ Gagal ambil info grup.', m);
+      }
+    }
+
+    // ---------- LANE GRUP SISTEM (lib/systems.js) ----------
+    if (cmd === 'welcome') {
+      const ga = await groupLane.guardAdmin(sock, jid, sender);
+      if (ga) return await safeReply(sock, jid, ga, m);
+      const sub = String(args || '').trim().toLowerCase();
+      if (sub === 'on') {
+        systems.welcomeOn(jid);
+        return await safeReply(sock, jid, '✅ Welcome ON — anggota baru otomatis disambut.', m);
+      }
+      if (sub === 'off') {
+        systems.welcomeOff(jid);
+        return await safeReply(sock, jid, '✅ Welcome OFF.', m);
+      }
+      return await safeReply(sock, jid, `Contoh: ${prefix}welcome on / off (saat ini: ${systems.isWelcomeOn(jid) ? 'ON' : 'OFF'})`, m);
+    }
+    if (cmd === 'antilink') {
+      const ga = await groupLane.guardAdmin(sock, jid, sender);
+      if (ga) return await safeReply(sock, jid, ga, m);
+      const sub = String(args || '').trim().toLowerCase();
+      if (sub === 'on') {
+        systems.antilinkOn(jid);
+        return await safeReply(sock, jid, '✅ Antilink ON — link invite otomatis dihapus.', m);
+      }
+      if (sub === 'off') {
+        systems.antilinkOff(jid);
+        return await safeReply(sock, jid, '✅ Antilink OFF.', m);
+      }
+      return await safeReply(sock, jid, `Contoh: ${prefix}antilink on / off (saat ini: ${systems.isAntilinkOn(jid) ? 'ON' : 'OFF'})`, m);
+    }
+    if (cmd === 'badword') {
+      const ga = await groupLane.guardAdmin(sock, jid, sender);
+      if (ga) return await safeReply(sock, jid, ga, m);
+      const [sub, ...rest] = String(args || '').trim().split(/\s+/);
+      const word = rest.join(' ').trim();
+      if (sub === 'add' && word) {
+        const r = systems.addBadword(word);
+        return await safeReply(sock, jid, r.msg, m);
+      }
+      if ((sub === 'del' || sub === 'delete' || sub === 'remove') && word) {
+        const r = systems.removeBadword(word);
+        return await safeReply(sock, jid, r.msg, m);
+      }
+      if (sub === 'list' || !sub) {
+        const list = systems.listBadword();
+        return await safeReply(sock, jid, list.length ? `🚫 *Badword (${list.length}):*\n${list.map((w, i) => `${i + 1}. ${w}`).join('\n')}` : '🚫 Daftar badword masih kosong.', m);
+      }
+      return await safeReply(sock, jid, `Contoh: ${prefix}badword add <kata> / del <kata> / list`, m);
+    }
+    if (cmd === 'level' || cmd === 'lvl' || cmd === 'rank') {
+      const lv = systems.getLevel(sender);
+      return await safeReply(
+        sock, jid,
+        `⭐ *Level @${String(sender).split('@')[0]}*\nLevel: ${lv.level}\nXP: ${lv.xp}/${systems.requiredXp(lv.level)}`,
+        m
+      );
+    }
+    if (cmd === 'leaderboard' || cmd === 'lb' || cmd === 'top') {
+      const list = systems.leaderboard(10);
+      if (!list.length) return await safeReply(sock, jid, systems.leaderboardText(10), m);
+      const ids = list.map((e) => String(e.id));
+      await sock.sendMessage(jid, { text: systems.leaderboardText(10), mentions: ids }, { quoted: m });
+      return;
+    }
+    if (cmd === 'limit') {
+      const l = systems.getLimit(sender);
+      return await safeReply(sock, jid, `⏳ *Limit harian:* ${l.remaining}/${l.max} tersisa.`, m);
+    }
+    if (cmd === 'dompet' || cmd === 'wallet' || cmd === 'saldo' || cmd === 'balance') {
+      const bal = systems.getBalance(sender);
+      return await safeReply(sock, jid, `💰 *Dompet @${String(sender).split('@')[0]}:* ${bal} koin.`, m);
+    }
+    if (cmd === 'transfer' || cmd === 'tf') {
+      const targets = groupLane.resolveTargets(m, args);
+      const nums = String(args || '').match(/\d+/g) || [];
+      const amt = Number(nums[nums.length - 1]);
+      if (!targets.length || !Number.isFinite(amt) || amt <= 0) {
+        return await safeReply(sock, jid, `Contoh: ${prefix}transfer @user 100`, m);
+      }
+      const r = systems.transfer(sender, targets[0], amt);
+      await sock.sendMessage(jid, { text: r.msg, mentions: [String(sender), String(targets[0])] }, { quoted: m });
+      return;
+    }
+    if (cmd === 'mining' || cmd === 'mine' || cmd === 'nambang') {
+      const r = systems.mine(sender);
+      if (!r.ok) return await safeReply(sock, jid, r.msg, m);
+      return await safeReply(sock, jid, `⛏️ Dapat *${r.reward}* koin! Saldo: ${r.balance}.`, m);
+    }
+    if (cmd === 'afk') {
+      systems.setAfk(sender, args || 'AFK');
+      return await safeReply(sock, jid, `💤 @${String(sender).split('@')[0]} sekarang AFK${args ? `: ${args}` : ''}.`, m);
+    }
+
+    // ---------- LANE INFO (lib/info.js) ----------
+    if (cmd === 'rules') {
+      return await safeReply(sock, jid, rulesText(prefix), m);
+    }
+    if (cmd === 'animesaran' || cmd === 'anime') {
+      return await safeReply(sock, jid, animeSaranText(), m);
+    }
+
+    // ---------- LANE MEDIA (lib/media-tools.js) ----------
+    if (cmd === 'toimg') {
+      const quoted = getQuoted(m);
+      const inner = quoted?.quotedMessage ? unwrapMessage(quoted.quotedMessage) : null;
+      if (!inner?.stickerMessage) {
+        return await safeReply(sock, jid, `Reply stiker + ${prefix}toimg untuk mengubahnya jadi gambar.`, m);
+      }
+      try {
+        const buf = await downloadBuffer(wrapQuoted(jid, quoted), sock);
+        const jpg = await mediaTools.toimg(buf);
+        await sock.sendMessage(jid, { image: jpg, caption: '🖼️ toimg' }, { quoted: m });
+      } catch (e) {
+        console.error('toimg', e?.message || e);
+        return await safeReply(sock, jid, '❌ Gagal mengubah stiker jadi gambar.', m);
+      }
+      return;
+    }
+    if (cmd === 'stickerwm' || cmd === 'swm' || cmd === 'wm') {
+      const quoted = getQuoted(m);
+      const quotedImg = quoted?.quotedMessage?.imageMessage || quoted?.quotedMessage?.stickerMessage;
+      const currentImg = m.message?.imageMessage;
+      if (!quotedImg && !currentImg) {
+        return await safeReply(sock, jid, `Reply gambar + ${prefix}stickerwm <pack>|<author>`, m);
+      }
+      const [pack, author] = String(args || '').split('|').map((s) => s.trim());
+      try {
+        const target = quotedImg ? wrapQuoted(jid, quoted) : m;
+        const buf = await downloadBuffer(target, sock);
+        const signed = await mediaTools.stickerWithWM(buf, pack || 'SONEZZ', author || 'wa-ai-bot-b');
+        await sock.sendMessage(jid, { sticker: signed }, { quoted: m });
+      } catch (e) {
+        console.error('stickerwm', e?.message || e);
+        return await safeReply(sock, jid, '❌ Gagal membuat stiker watermark.', m);
+      }
+      return;
+    }
+    if (cmd === 'attp' || cmd === 'ttp') {
+      if (!args) return await safeReply(sock, jid, `Contoh: ${prefix}${cmd} halo bang`, m);
+      try {
+        const png = cmd === 'attp' ? await mediaTools.attp(args) : await mediaTools.ttp(args);
+        const webp = await mediaTools.stickerWithWM(png, cmd.toUpperCase(), 'wa-ai-bot-b');
+        await sock.sendMessage(jid, { sticker: webp }, { quoted: m });
+      } catch (e) {
+        console.error(cmd, e?.message || e);
+        return await safeReply(sock, jid, `❌ Gagal membuat ${cmd}.`, m);
+      }
+      return;
+    }
+    if (cmd === 'triggered' || cmd === 'trigger') {
+      const quoted = getQuoted(m);
+      const quotedImg = quoted?.quotedMessage?.imageMessage;
+      const currentImg = m.message?.imageMessage;
+      if (!quotedImg && !currentImg) {
+        return await safeReply(sock, jid, `Reply gambar + ${prefix}triggered`, m);
+      }
+      await interim(sock, jid, m, '⚡ Lagi bikin TRIGGERED...');
+      try {
+        const target = quotedImg ? wrapQuoted(jid, quoted) : m;
+        const buf = await downloadBuffer(target, sock);
+        const gif = await mediaTools.triggered(buf);
+        await sock.sendMessage(jid, { image: gif, caption: '⚡ TRIGGERED' }, { quoted: m });
+      } catch (e) {
+        console.error('triggered', e?.message || e);
+        return await safeReply(sock, jid, '❌ Gagal membuat triggered.', m);
+      }
+      return;
+    }
+    if (cmd === 'emoji' || cmd === 'emojipng') {
+      if (!args) return await safeReply(sock, jid, `Contoh: ${prefix}emoji 😭`, m);
+      try {
+        const png = await mediaTools.emojitopng(args);
+        await sock.sendMessage(jid, { image: png, caption: `😀 ${args.split(/\s+/)[0]}` }, { quoted: m });
+      } catch (e) {
+        console.error('emoji', e?.message || e);
+        return await safeReply(sock, jid, '❌ Gagal render emoji.', m);
+      }
+      return;
+    }
+
+    // ---------- LANE IQC (lib/iqc.js) ----------
+    if (cmd === 'iqc') {
+      return await handleIqc(sock, jid, m, args, { quotedText: getQuotedText(m) });
+    }
+
+    // ---------- LANE DASH (lib/dash.js — SIG/CERT via env apa adanya) ----------
+    if (isDashCommand(cmd)) {
+      return await handleDash(sock, jid, m, args);
+    }
+
+    // ---------- LANE DOWNLOADER (lib/downloader.js, limit 1/hari per unduhan) ----------
+    if (cmd === 'play' || cmd === 'ytmp3' || cmd === 'ytmp4' || cmd === 'tiktok' || cmd === 'tiktoknowm' || cmd === 'fbdl' || cmd === 'igdl') {
+      const lim = systems.useLimit(sender, 1);
+      if (!lim.ok) {
+        return await safeReply(sock, jid, `⏳ Limit downloader habis (${lim.max}/hari). Balik lagi besok ya.`, m);
+      }
+      if (cmd === 'play') return await dlLane.handlePlay(sock, jid, m, args);
+      if (cmd === 'ytmp3') return await dlLane.handleYtmp3(sock, jid, m, args);
+      if (cmd === 'ytmp4') return await dlLane.handleYtmp4(sock, jid, m, args);
+      if (cmd === 'tiktok' || cmd === 'tiktoknowm') return await dlLane.handleTiktok(sock, jid, m, args);
+      if (cmd === 'fbdl') return await dlLane.handleFbdl(sock, jid, m, args);
+      if (cmd === 'igdl') return await dlLane.handleIgdl(sock, jid, m, args);
+    }
+
+    // ---------- LANE FREEINFO (lib/freeinfo.js) ----------
+    if (cmd === 'jadwalsholat' || cmd === 'sholat') {
+      return await freeInfo.handleSholat(sock, jid, m, args);
+    }
+    if (cmd === 'quran' || cmd === 'alquran') {
+      return await freeInfo.handleQuran(sock, jid, m, args);
+    }
+    if (cmd === 'gempa' || cmd === 'infogempa') {
+      return await freeInfo.handleGempa(sock, jid, m);
+    }
+    if (cmd === 'lirik' || cmd === 'lyrics') {
+      return await freeInfo.handleLirik(sock, jid, m, args);
+    }
+    if (cmd === 'shortlink' || cmd === 'short' || cmd === 'shorturl') {
+      return await freeInfo.handleShortlink(sock, jid, m, args);
+    }
+    if (cmd === 'kbbi') {
+      return await freeInfo.handleKbbi(sock, jid, m, args);
+    }
+
+    // ---------- LANE FUN (lib/fun.js, murni lokal) ----------
+    if (cmd === 'truth') return await safeReply(sock, jid, funLane.truth(), m);
+    if (cmd === 'dare') return await safeReply(sock, jid, funLane.dare(), m);
+    if (cmd === 'pantun') return await safeReply(sock, jid, funLane.pantun(), m);
+    if (cmd === 'fakta' || cmd === 'fact') return await safeReply(sock, jid, funLane.fakta(), m);
+    if (cmd === 'bisakah' || cmd === 'bisa') return await safeReply(sock, jid, funLane.bisakah(args), m);
+    if (cmd === 'apakah') return await safeReply(sock, jid, funLane.apakah(args), m);
+    if (cmd === 'kapankah' || cmd === 'kapan') return await safeReply(sock, jid, funLane.kapankah(args), m);
+    if (cmd === 'rate' || cmd === 'nilai') return await safeReply(sock, jid, funLane.rate(args), m);
+    if (cmd === 'alay') return await safeReply(sock, jid, funLane.alay(args), m);
+    if (cmd === 'hilih') return await safeReply(sock, jid, funLane.hilih(args), m);
+    if (cmd === 'jodoh' || cmd === 'jodohku') {
+      const [n1, n2] = String(args || '').split(/\s+/).filter(Boolean);
+      return await safeReply(sock, jid, funLane.jodoh(n1, n2), m);
+    }
+    if (cmd === 'weton') return await safeReply(sock, jid, funLane.weton(args), m);
+
+    // ---------- LANE NULIS & SSWEB ----------
+    if (cmd === 'nulis') {
+      return await handleNulis(sock, jid, m, args);
+    }
+    if (cmd === 'ssweb' || cmd === 'screenshot') {
+      const lim = systems.useLimit(sender, 1);
+      if (!lim.ok) {
+        return await safeReply(sock, jid, `⏳ Limit harian habis (${lim.max}/hari). Balik lagi besok ya.`, m);
+      }
+      return await handleSsweb(sock, jid, m, args);
+    }
+
     // Chat pribadi: teks bebas tanpa perintah -> langsung jawab AI (ikut mode curhat bila aktif)
     if (!isGroup) {
       try {
@@ -1287,4 +1953,23 @@ async function handleMessage(sock, m) {
   }
 }
 
-module.exports = { handleMessage, menuText };
+// Sambutan otomatis anggota baru (welcome on/off via lib/systems.js).
+// Wiring di index.js (SATU baris, di dalam startBot setelah messages.upsert):
+//   sock.ev.on('group-participants.update', (u) => { handleParticipantsUpdate(sock, u).catch(() => {}); });
+async function handleParticipantsUpdate(sock, update) {
+  try {
+    const { id, participants, action } = update || {};
+    if (!id || action !== 'add' || !systems.isWelcomeOn(id)) return;
+    const arr = (Array.isArray(participants) ? participants : []).map(String).filter(Boolean);
+    if (!arr.length) return;
+    const text =
+      `👋 *Selamat datang!*\n` +
+      arr.map((p) => `@${p.split('@')[0]}`).join(' ') +
+      `\nJangan lupa baca rules pakai .rules ya!`;
+    await sock.sendMessage(id, { text, mentions: arr });
+  } catch (e) {
+    console.error('[welcome]', e?.message || e);
+  }
+}
+
+module.exports = { handleMessage, menuText, handleParticipantsUpdate };

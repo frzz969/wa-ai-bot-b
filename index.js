@@ -9,7 +9,7 @@ const {
   DisconnectReason,
 } = require('@whiskeysockets/baileys');
 const config = require('./config');
-const { handleMessage } = require('./handlers/messages');
+const { handleMessage, handleParticipantsUpdate } = require('./handlers/messages');
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(config.SESSION_DIR);
@@ -96,6 +96,10 @@ async function startBot() {
       pump();
     });
   }
+
+  sock.ev.on('group-participants.update', (u) => {
+    handleParticipantsUpdate(sock, u).catch(() => {});
+  });
 
   sock.ev.on('messages.upsert', ({ messages }) => {
     for (const m of messages) {
