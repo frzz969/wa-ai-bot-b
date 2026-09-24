@@ -3,3 +3,5 @@ node_modules/
 session/
 data/
 database/backup-*/
+# Font proprietary (disediakan manual per-device, JANGAN push)
+assets/fonts/arialnarrow.ttf
