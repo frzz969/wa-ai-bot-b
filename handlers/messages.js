@@ -21,7 +21,6 @@ const dlLane = require('../lib/downloader');
 const freeInfo = require('../lib/freeinfo');
 const funLane = require('../lib/fun');
 const { handleNulis } = require('../lib/nulis');
-const { handleSsweb } = require('../lib/ssweb');
 // ---------- FASE 1: Router tipis + guards (src/commands + src/guards) ----------
 // Dimuat toleran-gagal: kalau modul baru bermasalah, bot tetap jalan via handler lama.
 let registry = null;
@@ -119,7 +118,7 @@ async function tryNewRouter(sock, m, jid, isGroup, sender, raw) {
   } catch (e) {
     console.error(`[router] execute ${command.name} gagal:`, e?.message || e);
     try {
-      await ctx.reply('❌ Command gagal dijalankan. Coba lagi sebentar ya.');
+      await ctx.reply('🙏 Maaf, fitur ini sedang dalam perbaikan atau belum tersedia di server ini. Silakan hubungi admin.');
     } catch {}
   }
   return true;
@@ -443,6 +442,7 @@ function menuText(pushName, prefix) {
     `🕐 ${tanggal} · 🔑 Prefix \`${prefix}\`\n\n` +
 
     `╭─「 🤖 BOT 」\n` +
+    `│ Langsung:\n` +
     `│ ${prefix}menu / ${prefix}help — tampilkan menu ini\n` +
     `│ ${prefix}about — info tentang bot\n` +
     `│ ${prefix}status — cek status bot\n` +
@@ -451,6 +451,7 @@ function menuText(pushName, prefix) {
     `╰─\n\n` +
 
     `╭─「 💬 CHAT 」\n` +
+    `│ Langsung:\n` +
     `│ ${prefix}ai <teks> — tanya AI (mengingat 10 pesan)\n` +
     `│ ${prefix}talk [teks] — mode curhat gaya lembut\n` +
     `│ ${prefix}stoptalk — keluar dari mode curhat\n` +
@@ -461,6 +462,7 @@ function menuText(pushName, prefix) {
     `╰─\n\n` +
 
     `╭─「 🧠 AI TOOLS 」\n` +
+    `│ Langsung:\n` +
     `│ ${prefix}ask <tanya> — tanya apa saja\n` +
     `│ ${prefix}explain <topik> — jelaskan sederhana\n` +
     `│ ${prefix}summarize <teks> — ringkas teks\n` +
@@ -471,6 +473,7 @@ function menuText(pushName, prefix) {
     `╰─\n\n` +
 
     `╭─「 💻 CODING 」\n` +
+    `│ Langsung:\n` +
     `│ ${prefix}code <minta> — buatkan kode\n` +
     `│ ${prefix}debug <kode+error> — analisis error\n` +
     `│ ${prefix}fix <kode> — perbaiki kode\n` +
@@ -478,6 +481,7 @@ function menuText(pushName, prefix) {
     `╰─\n\n` +
 
     `╭─「 🌐 WEB & INFO 」\n` +
+    `│ Langsung:\n` +
     `│ ${prefix}search <q> — cari informasi di web\n` +
     `│ ${prefix}news <topik> — berita terbaru\n` +
     `│ ${prefix}weather <kota> — cek cuaca\n` +
@@ -492,6 +496,7 @@ function menuText(pushName, prefix) {
     `╰─\n\n` +
 
     `╭─「 ⬇️ DOWNLOADER 」\n` +
+    `│ Langsung:\n` +
     `│ ${prefix}play <judul> — cari + download mp3\n` +
     `│ ${prefix}ytmp3 <link> — YouTube jadi mp3\n` +
     `│ ${prefix}ytmp4 <link> — YouTube jadi mp4 (max 720p)\n` +
@@ -501,36 +506,43 @@ function menuText(pushName, prefix) {
     `╰─\n\n` +
 
     `╭─「 🎭 STICKER & MEDIA 」\n` +
-    `│ reply gambar + ${prefix}stiker — gambar jadi stiker\n` +
+    `│ Reply gambar untuk:\n` +
+    `│ ${prefix}stiker — gambar jadi stiker\n` +
+    `│ ${prefix}stickerwm <pack>|<author> — watermark\n` +
+    `│ ${prefix}triggered — efek triggered\n` +
+    `│ Reply stiker untuk:\n` +
+    `│ ${prefix}toimg — stiker jadi gambar\n` +
+    `│ Langsung:\n` +
     `│ ${prefix}stiker <teks> — teks jadi stiker\n` +
-    `│ reply stiker + ${prefix}toimg — stiker jadi gambar\n` +
-    `│ reply gambar + ${prefix}stickerwm <pack>|<author>\n` +
     `│ ${prefix}attp / ${prefix}ttp <teks> — teks jadi stiker\n` +
-    `│ reply gambar + ${prefix}triggered — efek TRIGGERED\n` +
     `│ ${prefix}emoji <emoji> — emoji jadi gambar\n` +
     `│ ${prefix}iqc <teks> — quote ala iPhone\n` +
     `╰─\n\n` +
 
     `╭─「 👁️ VISION & VOICE 」\n` +
-    `│ ${prefix}ocr — baca teks dari gambar\n` +
+    `│ Reply gambar untuk:\n` +
+    `│ ${prefix}ai <tanya> — tanya AI tentang gambar\n` +
+    `│ ${prefix}ocr — baca tulisan di gambar\n` +
     `│ ${prefix}describe — deskripsikan gambar\n` +
     `│ ${prefix}analyze — analisis gambar mendalam\n` +
-    `│ kirim gambar + caption ${prefix}ai <tanya>\n` +
-    `│ reply VN + ${prefix}vn / ${prefix}transcribe\n` +
-    `│ ${prefix}tts <teks> — teks jadi suara (max 300)\n` +
+    `│ Reply voice note untuk:\n` +
+    `│ ${prefix}vn / ${prefix}transcribe — transkrip voice note\n` +
+    `│ Langsung:\n` +
+    `│ ${prefix}tts <teks> — ubah teks menjadi suara\n` +
     `╰─\n\n` +
 
     `╭─「 🎨 CREATIVE 」\n` +
+    `│ Langsung:\n` +
     `│ ${prefix}img / ${prefix}image <prompt> — buat gambar\n` +
     `│ ${prefix}brat <teks> — stiker teks ala brat\n` +
     `│ ${prefix}caption <topik> — caption medsos\n` +
     `│ ${prefix}story <tema> — cerita pendek\n` +
     `│ ${prefix}prompt <ide> — prompt gambar detail\n` +
     `│ ${prefix}nulis <teks> — tulis tangan di buku\n` +
-    `│ ${prefix}ssweb <url> — screenshot web\n` +
     `╰─\n\n` +
 
     `╭─「 🎉 FUN 」\n` +
+    `│ Langsung:\n` +
     `│ ${prefix}truth / ${prefix}dare — truth or dare\n` +
     `│ ${prefix}tarot — kartu tarot harianmu\n` +
     `│ ${prefix}zodiak <nama> — karakter zodiak\n` +
@@ -550,6 +562,7 @@ function menuText(pushName, prefix) {
     `╰─\n\n` +
 
     `╭─「 🎮 RPG 」\n` +
+    `│ Langsung:\n` +
     `│ ${prefix}dash — main SPEEDY DASH\n` +
     `│ ${prefix}fish — memancing\n` +
     `│ ${prefix}mine — menambang\n` +
@@ -560,6 +573,7 @@ function menuText(pushName, prefix) {
     `╰─\n\n` +
 
     `╭─「 👥 GROUP 」\n` +
+    `│ Langsung:\n` +
     `│ ${prefix}tagall [teks] — sebut semua anggota\n` +
     `│ ${prefix}hidetag <teks> — sebut tanpa daftar\n` +
     `│ ${prefix}kick @user / reply — keluarkan anggota\n` +
@@ -582,6 +596,7 @@ function menuText(pushName, prefix) {
     `╰─\n\n` +
 
     `╭─「 💰 ECONOMY 」\n` +
+    `│ Langsung:\n` +
     `│ ${prefix}daily — klaim harian\n` +
     `│ ${prefix}work — kerja dapat saldo\n` +
     `│ ${prefix}bank — info bank\n` +
@@ -1463,7 +1478,7 @@ async function handleMessage(sock, m) {
         }
       } catch (e) {
         console.error('tts', e?.message || e);
-        return await safeReply(sock, jid, '❌ Gagal membuat suara via Edge maupun Google. Coba teks lain / ulangi sebentar lagi ya.', m);
+        return await safeReply(sock, jid, '🙏 Maaf, fitur TTS sedang gagal diproses. Silakan coba lagi beberapa saat lagi. Fitur ini sedang dalam perbaikan. Hubungi admin jika masih gagal.', m);
       }
       return;
     }
@@ -2006,16 +2021,9 @@ async function handleMessage(sock, m) {
     if (cmd === 'puji') return await safeReply(sock, jid, funLane.puji(args), m);
     if (cmd === 'quotes' || cmd === 'quote') return await safeReply(sock, jid, funLane.quotes(), m);
 
-    // ---------- LANE NULIS & SSWEB ----------
+    // ---------- LANE NULIS ----------
     if (cmd === 'nulis') {
       return await handleNulis(sock, jid, m, args);
-    }
-    if (cmd === 'ssweb' || cmd === 'screenshot') {
-      const lim = systems.useLimit(sender, 1);
-      if (!lim.ok) {
-        return await safeReply(sock, jid, `⏳ Limit harian habis (${lim.max}/hari). Balik lagi besok ya.`, m);
-      }
-      return await handleSsweb(sock, jid, m, args);
     }
 
     // Chat pribadi: teks bebas tanpa perintah -> langsung jawab AI (ikut mode curhat bila aktif)

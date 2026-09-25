@@ -12,7 +12,7 @@ Bot WhatsApp modular (Baileys) — AI Gemini + Groq, downloader, economy & RPG *
 | Economy (aman, no judi) | `.daily`, `.work`, `.bank`, `.balance/.dompet`, `.transfer` |
 | RPG (teks, no judi) | `.fish/.mine`, `.quest`, `.profile/.leaderboard`, `.heal` |
 | Downloader | `.play/.ytmp3/.ytmp4/.tiktok/.fbdl/.igdl` (limit 25/hari) |
-| Util & info | `.menu/.ping/.status`, `.jadwalsholat/.quran/.gempa/.lirik/.shortlink/.kbbi`, `.qr/.calc/.ssweb/.nulis`, truth/dare/pantun/fakta |
+| Util & info | `.menu/.ping/.status`, `.jadwalsholat/.quran/.gempa/.lirik/.shortlink/.kbbi`, `.qr/.calc/.nulis`, truth/dare/pantun/fakta |
 | Media | `.stickerwm/.toimg/.attp/.ttp/.triggered/.emoji`, TTS, file PDF/DOCX auto-ringkas |
 | Game arcade | `.dash` (SPEEDY DASH v4, HTML5 offline) |
 | Owner | `.run` (sandbox, owner only) |
@@ -35,6 +35,25 @@ cp .env.example .env
 # isi .env (lihat bawah)
 npm start
 ```
+
+### PowerShell 5.1 (Windows)
+
+PowerShell 5.1 tidak mendukung operator `&&`. Jalankan perintah npm secara terpisah:
+
+```powershell
+npm install
+npm start
+```
+
+### Fitur IQC lokal
+
+`.iqc` membuat gambar quote WhatsApp secara lokal dengan Sharp, tanpa API screenshot dan tanpa Playwright:
+
+```text
+.iqc halo testt 😭
+```
+
+Bisa juga membalas pesan lalu mengirim `.iqc`. Output IQC berukuran `864×1536`. Emoji pada pesan memakai asset PNG lokal dari `assets/emoji-iphone/`; reaction bar dikunci ke `👍 ❤️ 😂 😮 😢 🙏`.
 
 ## 📱 Instal (Termux HP)
 
