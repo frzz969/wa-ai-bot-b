@@ -1,129 +1,91 @@
 # WA AI Bot B 🤖
 
-Bot WhatsApp modular (Baileys) — AI Gemini + Groq, downloader, economy & RPG **tanpa judi**, anti-spam, game arcade. 100% gratis, tanpa premium/sewa.
+**WA AI Bot B** adalah bot WhatsApp modular berbasis Baileys yang menggabungkan AI, automation, downloader, group management, utility, media tools, economy, RPG, dan game arcade dalam satu bot. Dibangun untuk penggunaan pribadi, eksperimen, dan pembelajaran dengan struktur modular yang mudah dikembangkan.
 
-## ✨ Fitur
+## ✨ Features
 
-| Kategori | Command |
-|---|---|
-| AI | `.ai` (teks+vision, memory 10), `.talk/.curhat`, `.ask` (RAG dokumen), `.explain/.summarize/.rewrite/.translate/.ideas`, `.ocr/.describe/.analyze`, `.img/.brat`, `.vn` + auto-transkrip VN |
-| Grup admin | `.tagall/.hidetag/.kick/.add/.promote/.demote/.linkgc/.group/.setname/.setdesc/.infogc`, `.welcome on/off` |
-| Moderasi | `.antilink`, badword auto-delete, `.warn/.unwarn/.cekwarn` (3x auto-kick), `.groupset antiflood/antilink/mute` |
-| Economy (aman, no judi) | `.daily`, `.work`, `.bank`, `.balance/.dompet`, `.transfer` |
-| RPG (teks, no judi) | `.fish/.mine`, `.quest`, `.profile/.leaderboard`, `.heal` |
-| Downloader | `.play/.ytmp3/.ytmp4/.tiktok/.fbdl/.igdl` (limit 25/hari) |
-| API publik gratis | `.aio/.spotify/.gdrive/.deepsearch` (tanpa API key, endpoint dapat berubah) |
-| Util & info | `.menu/.ping/.status`, `.jadwalsholat/.quran/.gempa/.lirik/.shortlink/.kbbi`, `.qr/.calc/.nulis`, truth/dare/pantun/fakta |
-| Media | `.stickerwm/.toimg/.attp/.ttp/.triggered/.emoji`, TTS, file PDF/DOCX auto-ringkas |
-| Game arcade | `.dash` (SPEEDY DASH v4, HTML5 offline) |
-| Owner | `.run` (sandbox, owner only) |
+- AI Gemini + Groq
+- WhatsApp automation
+- Downloader
+- Group management & moderation
+- Economy & RPG
+- Media tools
+- Arcade game
+- Owner tools
 
-> ❌ Yang **sengaja tidak dipasang**: `slots/roulette/coinflip/crime/lootbox/rob` (unsur judi).
+Fitur yang tidak dipasang karena unsur judi: `slots`, `roulette`, `coinflip` sebagai game, `crime`, `lootbox`, dan `rob`.
 
-## 🛠️ Syarat
+## 🛠️ Requirements
 
 - Node.js >= 18
-- `ffmpeg` + `yt-dlp` (wajib untuk downloader)
+- FFmpeg
+- yt-dlp
 
-## 🛠️ Command yang memakai ffmpeg / yt-dlp
-
-### Memakai `yt-dlp` + `ffmpeg`
-
-| Command | Fungsi |
-|---|---|
-| `.play <judul/link>` | Cari judul lalu download audio |
-| `.ytmp3 <link>` | YouTube menjadi MP3 |
-| `.ytmp4 <link>` | YouTube menjadi MP4 maksimal 720p |
-| `.tiktok <link>` | Download video TikTok |
-| `.fbdl <link>` | Download video Facebook |
-| `.igdl <link>` | Download video Instagram |
-
-Contoh:
-
-```text
-.play dhyo haw bajingan
-.ytmp3 https://youtu.be/xxxx
-.ytmp4 https://youtu.be/xxxx
-.tiktok https://vt.tiktok.com/xxxx
-.fbdl https://www.facebook.com/...
-.igdl https://www.instagram.com/reel/...
-```
-
-### Command yang tidak membutuhkan `ffmpeg` atau `yt-dlp`
-
-| Command | Keterangan |
-|---|---|
-| `.iqc <teks>` | Render lokal memakai `sharp` dan `text-to-svg` |
-| `.stiker <teks>` | Render lokal memakai `sharp` dan `text-to-svg` |
-| `.tts <teks>` | Memakai paket TTS Node.js, bukan `ffmpeg` |
-
-### Cek tool sudah terpasang
+FFmpeg dan yt-dlp dipakai oleh command downloader:
 
 ```bash
 ffmpeg -version
 yt-dlp --version
 ```
 
-Kalau salah satu command gagal, cek dulu dua perintah di atas. Di Termux, install dengan:
-
-```bash
-pkg install ffmpeg
-pip install yt-dlp
-```
-
-Di Windows, pastikan `ffmpeg` dan `yt-dlp` sudah masuk ke `PATH`.
-
-- API key gratis: [Gemini](https://aistudio.google.com) + [Groq](https://console.groq.com)
-
-## 🚀 Instal (Laptop/PC)
-
-```bash
-git clone <repo-mu>
-cd wa-ai-bot-b
-npm install
-cp .env.example .env
-# isi .env (lihat bawah)
-npm start
-```
-
-### PowerShell 5.1 (Windows)
-
-PowerShell 5.1 tidak mendukung operator `&&`. Jalankan perintah npm secara terpisah:
-
-```powershell
-npm install
-npm start
-```
-
-### Fitur IQC lokal
-
-`.iqc` membuat gambar quote WhatsApp secara lokal dengan Sharp, tanpa API screenshot dan tanpa Playwright:
+### Command downloader
 
 ```text
-.iqc halo testt 😭
+.play I Lay My Love On You - Westlife
+.ytmp3 https://youtu.be/ID_VIDEO
+.ytmp4 https://youtu.be/ID_VIDEO
+.tiktok https://vt.tiktok.com/ID_VIDEO
+.fbdl https://www.facebook.com/ID_VIDEO
+.igdl https://www.instagram.com/reel/ID_REEL/
 ```
 
-Bisa juga membalas pesan lalu mengirim `.iqc`. Output IQC berukuran `864×1536`. Emoji pada pesan memakai asset PNG lokal dari `assets/emoji-iphone/`; reaction bar dikunci ke `👍 ❤️ 😂 😮 😢 🙏`. Font IQC memakai `assets/fonts/sf-pro-display/SFPRODISPLAYREGULAR.OTF`.
+Command `.iqc`, `.stiker`, dan `.tts` tidak memerlukan FFmpeg atau yt-dlp.
 
-## 📱 Instal (Termux HP)
+## 🚀 Installation
+
+### Laptop/PC
 
 ```bash
-pkg update && pkg install nodejs git ffmpeg python
-pip install yt-dlp
 git clone <repo-mu>
 cd wa-ai-bot-b
 npm install
 cp .env.example .env
-# isi .env pakai nano:
+npm start
+```
+
+Windows PowerShell 5.1 tidak mendukung `&&`. Jalankan `npm install` dan `npm start` secara terpisah.
+
+## 🔑 Environment
+
+Salin `.env.example` ke `.env`, lalu isi:
+
+```env
+PREFIX=.
+PAIRING_NUMBER=6281234567890
+OWNER_NUMBER=6281234567890
+GEMINI_API_KEY=
+GROQ_API_KEY=
+DB_BACKEND=json
+```
+
+`PAIRING_NUMBER` boleh dikosongkan untuk memakai QR. `GEMINI_API_KEY` dipakai untuk fitur AI. `GROQ_API_KEY` dipakai untuk AI dan transkripsi voice note.
+
+## 📱 Termux
+
+```bash
+pkg update
+pkg install nodejs git ffmpeg python
+pip install yt-dlp
+cd wa-ai-bot-b
+npm install
+cp .env.example .env
 nano .env
 npm start
 ```
 
-### 🩹 Khusus Termux: kalau `sharp` error
+Jika `sharp` gagal di Termux, gunakan salah satu opsi berikut.
 
-Sharp (buat stiker) sering gagal install di Termux (`ERR_DLOPEN_FAILED`, simbol NDK tidak ketemu). Kalau `npm install` error soal sharp / `node -e "console.log(require('sharp').versions)"` gagal, coba berurutan:
-
-**Opsi A — versi WebAssembly (paling gampang, recommended):**
+### Opsi A: Sharp WebAssembly
 
 ```bash
 cd ~/wa-ai-bot-b
@@ -133,9 +95,13 @@ npm install @img/sharp-wasm32
 node -e "console.log(require('sharp').versions)"
 ```
 
-Kalau daftar versi (`vips`, `sharp`, ...) ke-print = sukses. Sedikit lebih lambat dari versi native, tapi buat stiker gak kerasa. Lanjut `npm start`.
+Kalau daftar versi `sharp` dan `vips` muncul, berarti berhasil. Lanjut dengan:
 
-**Opsi B — rebuild pakai libvips Termux (kalau Opsi A gagal):**
+```bash
+npm start
+```
+
+### Opsi B: Rebuild dengan libvips
 
 ```bash
 pkg update
@@ -152,72 +118,53 @@ node -e "console.log(require('sharp').versions)"
 npm start
 ```
 
-## 🔑 Isi `.env`
+## 🧩 Command IQC
 
-```env
-PREFIX=.
-PAIRING_NUMBER=6281234567890   # nomor WA bot, tanpa +/spasi. Kosongkan = pakai QR
-OWNER_NUMBER=6281234567890     # nomor owner (untuk .run)
-GEMINI_API_KEY=isi_dari_aistudio
-GROQ_API_KEY=isi_dari_console_groq
-DB_BACKEND=json                 # default. sqlite = opsional (lihat bawah)
+`.iqc` membuat gambar quote WhatsApp secara lokal. Tidak memakai API screenshot, Playwright, atau browser.
+
+```text
+.iqc halo testt 😭
 ```
 
-Jalankan `npm start` → muncul `PAIRING CODE: xxxx-xxxx` → di HP buka **WA > Perangkat Tertaut > Tautkan** → ketik kode itu. Kalau sukses: `✅ Bot terhubung` + folder `session/` terbentuk. **Backup folder `session/`.**
+Output berukuran `864x1536`. Emoji memakai asset lokal dari `assets/emoji-iphone/`. Font memakai `assets/fonts/sf-pro-display/SFPRODISPLAYREGULAR.OTF`.
 
-## 📁 Struktur
+## 🗄️ Storage
 
-```
-wa-ai-bot-b/
-├── index.js                 # koneksi Baileys + semaphore
-├── config.js                # baca .env
-├── handlers/messages.js     # router tipis (parse → guard → execute)
-├── src/
-│   ├── commands/modules/    # 1 fitur = 1 file (ai, economy, rpg, group, downloader, utility, owner)
-│   ├── guards/              # pipeline: ban → rate-limit → cooldown → owner → group → admin
-│   ├── extensions/safety/   # anti-flood, anti-link, warn store
-│   ├── extensions/maintenance/ # scheduler bersih-bersih
-│   └── storage/             # adapter JSON (default) / SQLite (opsional)
-├── lib/                     # helper berat (media, stiker, TTS, AI, downloader)
-├── games/dash.html          # SPEEDY DASH v4
-├── database/*.json          # data user (jangan push isi aslinya!)
-└── scripts/migrate-json-to-sqlite.js
-```
-
-## 🗄️ SQLite (opsional, default MATI)
-
-Default `DB_BACKEND=json` — cukup untuk 10–30 orang. Kalau grup 50+ / mulai corrupt:
+Default memakai JSON di `database/`. Untuk grup besar, SQLite opsional tersedia:
 
 ```bash
 npm i better-sqlite3
-# .env: DB_BACKEND=sqlite
+```
+
+```env
+DB_BACKEND=sqlite
+```
+
+```bash
 DB_BACKEND=sqlite node scripts/migrate-json-to-sqlite.js
 ```
 
-Backup otomatis ke `database/backup-YYYYMMDD/`. Balik ke JSON kapan saja: `DB_BACKEND=json`. Tanpa `better-sqlite3` bot otomatis fallback ke JSON (tidak crash).
+## 🔒 Security
 
-## ⚠️ Yang jangan di-push ke GitHub
+Jangan upload atau push file berikut:
 
-Sudah ada di `.gitignore`, tapi ingat:
-
-```
-.env            # API key!
-session/        # kunci login WA!
+```text
+.env
+session/
 node_modules/
-data/           # bot.db (data user)
+database/*.json
 database/backup-*/
 ```
 
-`database/*.json` berisi saldo/level user — push versi kosongnya saja untuk publik.
+Backup folder `session/` secara berkala. Jangan bagikan API key.
 
-## ❓ FAQ
+## ⚠️ Notes
 
-**Session hilang?** Folder `session/` kehapus / logout sendiri. Solusi: `npm start` → pairing ulang sekali. Biar awet: jangan hapus folder `session/`, tambahkan ke `.gitignore` (sudah), backup manual.
+- Beberapa fitur dapat bergantung pada layanan pihak ketiga.
+- Downloader bergantung pada `yt-dlp` dan dukungan platform target.
+- `.iqc`, stiker, dan TTS berjalan lokal.
+- Kalau FFmpeg atau yt-dlp belum terpasang, downloader akan gagal dengan pesan jelas.
 
-**Spam?** Nyalakan di grup: `.groupset antiflood on` + `.groupset antilink on`. Cooldown tiap command otomatis (umum 5 dtk, downloader 30 dtk, `work` 30 mnt, `daily` 20 jam).
+## 📜 License
 
-**Perintah judi?** Tidak ada. Kalau nemu yang mirip, laporkan — itu bug.
-
-## 📜 Lisensi
-
-Pribadi / bebas pakai. API key & session tanggung jawab masing-masing.
+No license specified.

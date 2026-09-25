@@ -1981,9 +1981,9 @@ async function handleMessage(sock, m) {
     if (cmd === 'aio' || cmd === 'spotify' || cmd === 'gdrive' || cmd === 'deepsearch') {
       if (!args) {
         const examples = {
-          aio: 'Contoh: .aio https://www.youtube.com/watch?v=...',
-          spotify: 'Contoh: .spotify https://open.spotify.com/track/...',
-          gdrive: 'Contoh: .gdrive https://drive.google.com/file/d/.../view',
+          aio: 'Contoh: .aio https://www.youtube.com/watch?v=VIDEO_ID',
+          spotify: 'Contoh: .spotify https://open.spotify.com/track/TRACK_ID',
+          gdrive: 'Contoh: .gdrive https://drive.google.com/file/d/FILE_ID/view',
           deepsearch: 'Contoh: .deepsearch faktor yang memengaruhi GraduationRate',
         };
         return await safeReply(sock, jid, examples[cmd] || `Contoh: ${prefix}${cmd} <argumen>`, m);
