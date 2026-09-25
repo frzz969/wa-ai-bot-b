@@ -18,6 +18,7 @@ const mediaTools = require('../lib/media-tools');
 const { handleIqc } = require('../lib/iqc');
 const { isDashCommand, handleDash } = require('../lib/dash');
 const dlLane = require('../lib/downloader');
+const publicApi = require('../lib/public-api');
 const freeInfo = require('../lib/freeinfo');
 const funLane = require('../lib/fun');
 const { handleNulis } = require('../lib/nulis');
@@ -503,6 +504,13 @@ function menuText(pushName, prefix) {
     `│ ${prefix}tiktok <link> — download TikTok\n` +
     `│ ${prefix}fbdl <link> — download video FB\n` +
     `│ ${prefix}igdl <link> — download video IG\n` +
+    `╰─\n\n` +
+
+    `╭─「 🆓 API PUBLIK 」\n` +
+    `│ ${prefix}aio <link> — download multi-platform via API gratis\n` +
+    `│ ${prefix}spotify <link> — audio Spotify via API gratis\n` +
+    `│ ${prefix}gdrive <link> — download file Google Drive\n` +
+    `│ ${prefix}deepsearch <topik> — riset singkat via AI publik\n` +
     `╰─\n\n` +
 
     `╭─「 🎭 STICKER & MEDIA 」\n` +
@@ -1967,6 +1975,42 @@ async function handleMessage(sock, m) {
       if (cmd === 'tiktok' || cmd === 'tiktoknowm') return await dlLane.handleTiktok(sock, jid, m, args);
       if (cmd === 'fbdl') return await dlLane.handleFbdl(sock, jid, m, args);
       if (cmd === 'igdl') return await dlLane.handleIgdl(sock, jid, m, args);
+    }
+
+    // ---------- LANE API PUBLIK GRATIS (tanpa key) ----------
+    if (cmd === 'aio' || cmd === 'spotify' || cmd === 'gdrive' || cmd === 'deepsearch') {
+      if (!args) {
+        const examples = {
+          aio: 'Contoh: .aio https://www.youtube.com/watch?v=...',
+          spotify: 'Contoh: .spotify https://open.spotify.com/track/...',
+          gdrive: 'Contoh: .gdrive https://drive.google.com/file/d/.../view',
+          deepsearch: 'Contoh: .deepsearch faktor yang memengaruhi GraduationRate',
+        };
+        return await safeReply(sock, jid, examples[cmd] || `Contoh: ${prefix}${cmd} <argumen>`, m);
+      }
+      const labels = { aio: '⬇️', spotify: '🎵', gdrive: '📁', deepsearch: '🔎' };
+      await interim(sock, jid, m, `${labels[cmd]} Memproses lewat API publik gratis...`);
+      try {
+        if (cmd === 'deepsearch') {
+          const result = await publicApi.deepSearch(args);
+          return await sendLongText(sock, jid, `🔎 *Deep Search*\n\n${String(result || 'Tidak ada hasil.')}`, m);
+        }
+        if (cmd === 'spotify') {
+          const result = await publicApi.spotify(args);
+          return await sock.sendMessage(jid, { audio: { url: result.url }, mimetype: 'audio/mpeg', caption: `🎵 ${result.title || 'Spotify'}${result.artist ? ` — ${result.artist}` : ''}` }, { quoted: m });
+        }
+        if (cmd === 'gdrive') {
+          const result = await publicApi.googleDrive(args);
+          return await sock.sendMessage(jid, { document: { url: result.url }, fileName: result.name || 'google-drive-file', mimetype: 'application/octet-stream', caption: `📁 ${result.name || 'File Google Drive'}` }, { quoted: m });
+        }
+        const result = await publicApi.aio(args);
+        const media = result.media;
+        const caption = result.title ? `🎬 ${result.title}` : '🎬 Hasil download';
+        return await sock.sendMessage(jid, { video: { url: media.url }, mimetype: media.mimeType || 'video/mp4', caption }, { quoted: m });
+      } catch (e) {
+        console.error(`[public-api:${cmd}]`, e?.message || e);
+        return await safeReply(sock, jid, `❌ ${e?.message || 'API publik sedang tidak tersedia.'}`, m);
+      }
     }
 
     // ---------- LANE FREEINFO (lib/freeinfo.js) ----------

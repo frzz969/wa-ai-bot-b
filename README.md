@@ -12,6 +12,7 @@ Bot WhatsApp modular (Baileys) — AI Gemini + Groq, downloader, economy & RPG *
 | Economy (aman, no judi) | `.daily`, `.work`, `.bank`, `.balance/.dompet`, `.transfer` |
 | RPG (teks, no judi) | `.fish/.mine`, `.quest`, `.profile/.leaderboard`, `.heal` |
 | Downloader | `.play/.ytmp3/.ytmp4/.tiktok/.fbdl/.igdl` (limit 25/hari) |
+| API publik gratis | `.aio/.spotify/.gdrive/.deepsearch` (tanpa API key, endpoint dapat berubah) |
 | Util & info | `.menu/.ping/.status`, `.jadwalsholat/.quran/.gempa/.lirik/.shortlink/.kbbi`, `.qr/.calc/.nulis`, truth/dare/pantun/fakta |
 | Media | `.stickerwm/.toimg/.attp/.ttp/.triggered/.emoji`, TTS, file PDF/DOCX auto-ringkas |
 | Game arcade | `.dash` (SPEEDY DASH v4, HTML5 offline) |
@@ -22,7 +23,56 @@ Bot WhatsApp modular (Baileys) — AI Gemini + Groq, downloader, economy & RPG *
 ## 🛠️ Syarat
 
 - Node.js >= 18
-- `ffmpeg` + `yt-dlp` (wajib untuk downloader/stiker)
+- `ffmpeg` + `yt-dlp` (wajib untuk downloader)
+
+## 🛠️ Command yang memakai ffmpeg / yt-dlp
+
+### Memakai `yt-dlp` + `ffmpeg`
+
+| Command | Fungsi |
+|---|---|
+| `.play <judul/link>` | Cari judul lalu download audio |
+| `.ytmp3 <link>` | YouTube menjadi MP3 |
+| `.ytmp4 <link>` | YouTube menjadi MP4 maksimal 720p |
+| `.tiktok <link>` | Download video TikTok |
+| `.fbdl <link>` | Download video Facebook |
+| `.igdl <link>` | Download video Instagram |
+
+Contoh:
+
+```text
+.play dhyo haw bajingan
+.ytmp3 https://youtu.be/xxxx
+.ytmp4 https://youtu.be/xxxx
+.tiktok https://vt.tiktok.com/xxxx
+.fbdl https://www.facebook.com/...
+.igdl https://www.instagram.com/reel/...
+```
+
+### Command yang tidak membutuhkan `ffmpeg` atau `yt-dlp`
+
+| Command | Keterangan |
+|---|---|
+| `.iqc <teks>` | Render lokal memakai `sharp` dan `text-to-svg` |
+| `.stiker <teks>` | Render lokal memakai `sharp` dan `text-to-svg` |
+| `.tts <teks>` | Memakai paket TTS Node.js, bukan `ffmpeg` |
+
+### Cek tool sudah terpasang
+
+```bash
+ffmpeg -version
+yt-dlp --version
+```
+
+Kalau salah satu command gagal, cek dulu dua perintah di atas. Di Termux, install dengan:
+
+```bash
+pkg install ffmpeg
+pip install yt-dlp
+```
+
+Di Windows, pastikan `ffmpeg` dan `yt-dlp` sudah masuk ke `PATH`.
+
 - API key gratis: [Gemini](https://aistudio.google.com) + [Groq](https://console.groq.com)
 
 ## 🚀 Instal (Laptop/PC)
@@ -53,7 +103,7 @@ npm start
 .iqc halo testt 😭
 ```
 
-Bisa juga membalas pesan lalu mengirim `.iqc`. Output IQC berukuran `864×1536`. Emoji pada pesan memakai asset PNG lokal dari `assets/emoji-iphone/`; reaction bar dikunci ke `👍 ❤️ 😂 😮 😢 🙏`.
+Bisa juga membalas pesan lalu mengirim `.iqc`. Output IQC berukuran `864×1536`. Emoji pada pesan memakai asset PNG lokal dari `assets/emoji-iphone/`; reaction bar dikunci ke `👍 ❤️ 😂 😮 😢 🙏`. Font IQC memakai `assets/fonts/sf-pro-display/SFPRODISPLAYREGULAR.OTF`.
 
 ## 📱 Instal (Termux HP)
 
