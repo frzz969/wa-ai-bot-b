@@ -160,7 +160,10 @@ async function handleWebinfo(ctx) {
     }
 
     // ---------- LANE FREEINFO (lib/freeinfo.js) ----------
-    if (cmd === 'jadwalsholat' || cmd === 'sholat') {
+    // 'adwalsholat' = jaring pengaman typo (dulu pernah muncul di menu lokal
+    // hasil penyederhanaan awalan 'j' yang salah -> "jadwalsholat" jadi
+    // "adwalsholat"). Tetap diarahkan ke perintah yang benar.
+    if (cmd === 'jadwalsholat' || cmd === 'sholat' || cmd === 'adwalsholat') {
       await freeInfo.handleSholat(sock, jid, m, args); return true;
     }
     if (cmd === 'quran' || cmd === 'alquran') {
