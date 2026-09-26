@@ -2,6 +2,9 @@
 node_modules/
 session/
 data/
-database/backup-*/
+# Data runtime user: nomor HP, saldo, XP, setelan grup. JANGAN pernah push.
+# Bot membuat foldernya sendiri (lib/systems.js:25 & src/storage/sqlite.js:303
+# pakai fs.mkdirSync recursive), jadi fresh clone tetap jalan.
+database/
 # Font proprietary (disediakan manual per-device, JANGAN push)
 assets/fonts/arialnarrow.ttf
