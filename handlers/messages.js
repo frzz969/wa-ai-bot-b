@@ -248,16 +248,31 @@ async function handleMessage(sock, m) {
     }
     // ---------- Router plugin (plugins/<tema>/*.js, urutan nama file) ----------
     const ctx = { sock, m, jid, isGroup, sender, body, cmd, args, prefix, start, unwrapped };
+    let pluginError = null;
     for (const plugin of plugins) {
       try {
         if (await plugin.handler(ctx)) return;
       } catch (e) {
+        pluginError = `${plugin.name}: ${e?.message || e}`;
         console.error('[plugin]', plugin.name, e?.message || e);
       }
     }
 
-    // Chat pribadi: teks bebas tanpa perintah -> langsung jawab AI (ikut mode curhat bila aktif)
-    if (!isGroup) {
+    // Perintah ber-prefix yang gagal di plugin: balas errornya, jangan diam.
+    // Tanpa ini user hanya melihat bot diam (atau dijawab AI), sulit dicari.
+    if (pluginError && (hasPrefix || mentioned)) {
+      return await safeReply(
+        sock, jid,
+        `⚠️ Perintah \`${prefix}${cmd}\` gagal diproses.\n_${pluginError}_\nKetik ${prefix}menu untuk daftar command.`,
+        m
+      );
+    }
+
+    // Chat pribadi: teks BEBAS tanpa perintah -> jawab AI.
+    // PENTING: hanya kalau TIDAK ada prefix/mention. Kalau user mengetik
+    // ".menu" dan tidak ada plugin yang menangani, jangan jatuh ke freechat
+    // (dulu hasilnya bot menjawab dengan AI alih-alih perintah).
+    if (!isGroup && !hasPrefix && !mentioned) {
       try {
         const prompt = buildContextPrompt(jid, withTalkFlag(jid, sender, body));
         const answer = await chatAI(prompt, undefined, undefined, sessionStyle(jid, sender) || config.STYLE);
