@@ -81,6 +81,22 @@ async function handleGames(ctx) {
         await safeReply(sock, jid, '❌ Game error. Mulai ulang pakai .ttt ya.', m); return true;
       }
     }
+    // Daftar kategori kuis (dikiklankan di menu; dulu belum ada -> diam).
+    if (cmd === 'kuislist' || cmd === 'quizlist') {
+      try {
+        const cats = games.listCategories() || [];
+        await safeReply(
+          sock, jid,
+          `🎯 *Kategori kuis*\n` +
+          (cats.length ? cats.map((c) => `  ┣ ${c}`).join('\n') : '  (belum ada)') +
+          `\n\nCara pakai: ${prefix}kuis <kategori>`,
+          m
+        ); return true;
+      } catch (e) {
+        console.error('kuislist', e?.message || e);
+        await safeReply(sock, jid, '❌ Gagal ambil daftar kuis.', m); return true;
+      }
+    }
     if (cmd === 'kuis' || cmd === 'quiz') {
       try {
         const cats = games.listCategories();
