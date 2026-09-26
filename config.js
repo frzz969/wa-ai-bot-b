@@ -4,6 +4,8 @@ module.exports = {
   PREFIX: process.env.PREFIX || '.',
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
   GROQ_API_KEY: process.env.GROQ_API_KEY || '',
+  JERE_API_KEY: process.env.JERE_API_KEY || '',
+  JERE_API_BASE: 'https://api.jerexd.my.id',
   PAIRING_NUMBER: (process.env.PAIRING_NUMBER || '').replace(/[^0-9]/g, ''),
   OWNER_NUMBER: (process.env.OWNER_NUMBER || '').replace(/[^0-9]/g, ''),
 
