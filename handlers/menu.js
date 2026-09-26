@@ -302,13 +302,20 @@ function header(pushName, prefix, opts = {}) {
   );
 }
 
-// Ringkas untuk .menu all: satu baris per kategori, muat satu pesan.
-function renderCategoryCompact(cat) {
-  const names = cat.items
-    .filter(([n]) => n !== '@grup')
-    .map(([n, , f]) => `${PREFIX_}${n}${badges(f)}`)
-    .join(' · ');
-  return `${cat.title}\n${names}`;
+// Untuk .menu all: tiap kategori dalam kotak ╭─「 」, sub-judul "Reply ... untuk:".
+function renderCategoryBox(cat) {
+  const groups = [];
+  let cur = null;
+  for (const [n, d, f] of cat.items) {
+    if (n === '@grup') { cur = { label: d, cmds: [] }; groups.push(cur); continue; }
+    const cmd = `${PREFIX_}${n}${badges(f)}`;
+    if (!cur) { cur = { label: null, cmds: [] }; groups.push(cur); }
+    cur.cmds.push(cmd);
+  }
+  const body = groups
+    .map((g) => (g.label ? `│ *${g.label}*\n│ ${g.cmds.join(' ')}` : `│ ${g.cmds.join(' ')}`))
+    .join('\n');
+  return `╭─「 ${cat.title} 」─╮\n${body}\n╰${'─'.repeat(Math.max(4, cat.title.length + 8))}╯`;
 }
 
 // Penuh untuk .menu <kategori>, dengan sub-judul.
@@ -367,7 +374,16 @@ FOOTER_NOTE
 function allMode(prefix) {
   PREFIX_ = prefix;
   return (
-CATEGORIES.map(renderCategoryCompact).join('\n\n') + `\n\n` + FOOTER_NOTE
+`${RUL}\n` +
+`*SONEZZ AI ASSISTANT*\n` +
+`AI · Media · Utility\n` +
+`${RUL}\n\n` +
+CATEGORIES.map(renderCategoryBox).join('\n\n') +
+`\n\n${RUL}\n` +
+`*Private* → chat bebas\n` +
+`*Group* → \`${prefix}\` / mention bot\n` +
+`${RUL}\n\n` +
+FOOTER_NOTE
   );
 }
 
