@@ -30,7 +30,7 @@ async function handleJereDl(ctx) {
         dlfb: 'dlfb <link facebook>', dlspot: 'dlspot <link spotify>',
       }[cmd] || `${cmd} <link>`;
       if (!url) { await safeReply(sock, jid, `Contoh: ${prefix}${usage}`, m); return true; }
-      await interim(sock, jid, m, '⬇️ Lagi download via Jere...');
+      await interim(sock, jid, m, '⬇️ Lagi download via server...');
       try {
         // --- File (kirim sebagai dokumen) ---
         if (cmd === 'dlmediafire' || cmd === 'dlmf') {

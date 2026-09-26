@@ -20,7 +20,7 @@ async function handleJereUtil(ctx) {
     // ===== JERE-UTIL (search/news/style/short/mlbb/ff/info + owner aman) =====
     if (cmd === 'jyts' || cmd === 'yts') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}yts <kata kunci youtube>`, m); return true; }
-      await interim(sock, jid, m, '🔍 Lagi search YouTube (Jere)...');
+      await interim(sock, jid, m, '🔍 Lagi search YouTube ...');
       try {
         const vids = await jereUtil.jereYts(args, 7);
         await sendLongText(sock, jid, jereUtil.formatYtsCaption(args, vids).slice(0, 3500), m); return true;
@@ -31,7 +31,7 @@ async function handleJereUtil(ctx) {
     }
     if (cmd === 'jspotify') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}jspotify <kata kunci lagu>`, m); return true; }
-      await interim(sock, jid, m, '🔍 Lagi search Spotify (Jere)...');
+      await interim(sock, jid, m, '🔍 Lagi search Spotify ...');
       try {
         const tracks = await jereUtil.jereSpotifySearch(args, 5);
         await sendLongText(sock, jid, jereUtil.formatSpotifyCaption(args, tracks).slice(0, 3500), m); return true;
@@ -42,7 +42,7 @@ async function handleJereUtil(ctx) {
     }
     if (cmd === 'jpin' || cmd === 'pin') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}pin <kata kunci pinterest>`, m); return true; }
-      await interim(sock, jid, m, '📌 Lagi search Pinterest (Jere)...');
+      await interim(sock, jid, m, '📌 Lagi search Pinterest ...');
       try {
         const pins = await jereUtil.jerePinSearch(args, 5);
         const img = jereUtil.pickFirstImageUrl ? jereUtil.pickFirstImageUrl(pins) : '';
@@ -58,7 +58,7 @@ async function handleJereUtil(ctx) {
     }
     if (cmd === 'jwallpaper' || cmd === 'wallpaper') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}wallpaper anime`, m); return true; }
-      await interim(sock, jid, m, '🖼️ Lagi cari wallpaper (Jere)...');
+      await interim(sock, jid, m, '🖼️ Lagi cari wallpaper ...');
       try {
         const w = await jereUtil.jereWallpaper(args);
         const u = typeof w === 'string' ? w : (w.url || w.image || w.thumbnail || '');
@@ -72,7 +72,7 @@ async function handleJereUtil(ctx) {
     }
     if (cmd === 'jcuaca') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}jcuaca Jakarta`, m); return true; }
-      await interim(sock, jid, m, '🌤️ Lagi cek cuaca (Jere)...');
+      await interim(sock, jid, m, '🌤️ Lagi cek cuaca ...');
       try {
         const r = await jereUtil.jereCuaca(args);
         await sendLongText(sock, jid, jereUtil.formatCuacaCaption(r).slice(0, 3500), m); return true;
@@ -82,7 +82,7 @@ async function handleJereUtil(ctx) {
       }
     }
     if (cmd === 'jbmkg' || cmd === 'bmkg') {
-      await interim(sock, jid, m, '🌤️ Lagi cek BMKG (Jere)...');
+      await interim(sock, jid, m, '🌤️ Lagi cek BMKG ...');
       try {
         const list = await jereUtil.jereBmkg(args || '');
         const arr = Array.isArray(list) ? list : [];
@@ -93,7 +93,7 @@ async function handleJereUtil(ctx) {
       }
     }
     if (cmd === 'jlibur' || cmd === 'libur') {
-      await interim(sock, jid, m, '🗓️ Lagi cek hari libur (Jere)...');
+      await interim(sock, jid, m, '🗓️ Lagi cek hari libur ...');
       try {
         const r = await jereUtil.jereHariLibur(args || String(new Date().getFullYear()));
         await sendLongText(sock, jid, jereUtil.formatHariLiburCaption(r.tahun, r.total, r.list).slice(0, 3500), m); return true;
@@ -127,7 +127,7 @@ async function handleJereUtil(ctx) {
     if (cmd === 'jnews') {
       const src = String(args || '').trim().split(/\s+/)[0].toLowerCase() || '';
       if (!['cnbc', 'kompas', 'liputan6'].includes(src)) { await safeReply(sock, jid, `Contoh: ${prefix}jnews cnbc\nPilihan: cnbc, kompas, liputan6`, m); return true; }
-      await interim(sock, jid, m, '📰 Lagi ambil berita (Jere)...');
+      await interim(sock, jid, m, '📰 Lagi ambil berita ...');
       try {
         const list = await jereUtil.jereNews(src, 5);
         await sendLongText(sock, jid, jereUtil.formatNewsCaption(src, list).slice(0, 3500), m); return true;
@@ -138,7 +138,7 @@ async function handleJereUtil(ctx) {
     }
     if (cmd === 'jgenius' || cmd === 'genius') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}genius <judul lagu>`, m); return true; }
-      await interim(sock, jid, m, '🎵 Lagi cari di Genius (Jere)...');
+      await interim(sock, jid, m, '🎵 Lagi cari di Genius ...');
       try {
         const songs = await jereUtil.jereGenius(args, 5);
         const txt = jereUtil.formatGeniusCaption ? jereUtil.formatGeniusCaption(args, songs) : JSON.stringify(songs).slice(0, 3000);
@@ -150,7 +150,7 @@ async function handleJereUtil(ctx) {
     }
     if (cmd === 'jmlbb' || cmd === 'mlbb') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}mlbb fanny`, m); return true; }
-      await interim(sock, jid, m, '⚔️ Lagi ambil build MLBB (Jere)...');
+      await interim(sock, jid, m, '⚔️ Lagi ambil build MLBB ...');
       try {
         const build = await jereUtil.jereMlbbBuild(args);
         await sendLongText(sock, jid, jereUtil.formatMlbbBuildCaption(build).slice(0, 3500), m); return true;
@@ -160,7 +160,7 @@ async function handleJereUtil(ctx) {
       }
     }
     if (cmd === 'jmlbbtier' || cmd === 'mlbbtier') {
-      await interim(sock, jid, m, '⚔️ Lagi ambil tier MLBB (Jere)...');
+      await interim(sock, jid, m, '⚔️ Lagi ambil tier MLBB ...');
       try {
         const tier = await jereUtil.jereMlbbTier();
         const top = (Array.isArray(tier) ? tier : []).slice(0, 15).map((h, i) => `${i + 1}. ${h.hero_name || h.hero || h.name || '-'} — Tier ${h.tier || '-'}`).join('\n');
@@ -172,7 +172,7 @@ async function handleJereUtil(ctx) {
     }
     if (cmd === 'jff' || cmd === 'ff') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}ff 417262746`, m); return true; }
-      await interim(sock, jid, m, '🎮 Lagi stalk FF (Jere)...');
+      await interim(sock, jid, m, '🎮 Lagi stalk FF ...');
       try {
         const p = await jereUtil.jereFfStalk(args);
         await sendLongText(sock, jid, jereUtil.formatFfStalkCaption(p, String(args).replace(/[^0-9]/g, '')).slice(0, 3500), m); return true;

@@ -18,12 +18,12 @@ async function handleJereGame(ctx) {
   const { sock, m, jid, isGroup, sender, body, cmd, args, prefix, start, unwrapped } = ctx;
     // ===== JERE-GAME/FUN (sesi Jere terpisah; .jawab digabung di atas) =====
     if (cmd === 'jkuislist') {
-      await safeReply(sock, jid, `🎮 *Kuis Jere (23):*\n${jereFun.listGames().join(', ')}\n\nContoh: ${prefix}jkuis tebakgambar`, m); return true;
+      await safeReply(sock, jid, `🎮 *Kuis Lanjutan (23):*\n${jereFun.listGames().join(', ')}\n\nContoh: ${prefix}jkuis tebakgambar`, m); return true;
     }
     if (cmd === 'jkuis' || cmd === 'jquiz') {
       const g = String(args || '').trim().split(/\s+/)[0] || '';
       if (!g) { await safeReply(sock, jid, `Contoh: ${prefix}jkuis tebakgambar\nDaftar: ${prefix}jkuislist`, m); return true; }
-      await interim(sock, jid, m, '❓ Lagi ambil soal (Jere)...');
+      await interim(sock, jid, m, '❓ Lagi ambil soal ...');
       try {
         const soal = await jereFun.fetchSoal(g);
         mapSetCapped(jereQuizSessions, scopeKey(jid, sender), soal);
@@ -52,7 +52,7 @@ async function handleJereGame(ctx) {
       }
     }
     if (cmd === 'primbonlist') {
-      await safeReply(sock, jid, `🔮 *Primbon Jere (11):*\n${jereFun.listPrimbon().join(', ')}\n\nContoh: ${prefix}primbon artinama|Budi`, m); return true;
+      await safeReply(sock, jid, `🔮 *Primbon (11):*\n${jereFun.listPrimbon().join(', ')}\n\nContoh: ${prefix}primbon artinama|Budi`, m); return true;
     }
     if (cmd === 'primbon') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}primbon artinama|Budi\nDaftar: ${prefix}primbonlist`, m); return true; }
@@ -80,7 +80,7 @@ async function handleJereGame(ctx) {
         } else {
           params = { text: rest };
         }
-        await interim(sock, jid, m, '🔮 Lagi baca primbon (Jere)...');
+        await interim(sock, jid, m, '🔮 Lagi baca primbon ...');
         const r = await jereFun.primbon(kind, params);
         const out = typeof r === 'string' ? r : JSON.stringify(r, null, 2);
         await sendLongText(sock, jid, `🔮 *Primbon ${kind}*\n\n${String(out).slice(0, 3500)}`, m); return true;
@@ -115,7 +115,7 @@ async function handleJereGame(ctx) {
       }
     }
     if (cmd === 'alkitab') {
-      await interim(sock, jid, m, '📖 Lagi buka Alkitab (Jere)...');
+      await interim(sock, jid, m, '📖 Lagi buka Alkitab ...');
       try {
         const r = await jereFun.alkitab(args || '');
         const out = typeof r === 'string' ? r : JSON.stringify(r, null, 2);

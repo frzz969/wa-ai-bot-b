@@ -538,12 +538,15 @@ async function handleVN(sock, jid, m, target, audioMeta) {
 
 // ---------- Helper JERE (dipindah verbatim dari dalam handleMessage; dipakai semua lane jere-*) ----------
 const jereErr = (e) => {
-  const msg = String((e && e.message) || 'Gagal memproses. Coba lagi ya.');
-  if (/key|kuota|quota|apikey|api key|unauthor|forbidden|401|403|limit/i.test(msg) && /jere|key|kuota|quota|401|403|unauthor|forbidden/i.test(msg)) {
-    return '⚠️ Fitur Jere butuh key valid (cek JERE_API_KEY / kuota habis). Coba lagi nanti ya.';
+  // Pengaman: apa pun isi error internalnya, user tidak boleh melihat nama
+  // penyedia ("Jere"). Ini satu-satunya gerbang pesan error ke user.
+  const raw = String((e && e.message) || 'Gagal memproses. Coba lagi ya.');
+  const msg = raw.replace(/jere\s*api/gi, 'Server').replace(/\bjere\b/gi, 'Server');
+  if (/key|kuota|quota|apikey|api key|unauthor|forbidden|401|403|limit/i.test(msg) && /server|key|kuota|quota|401|403|unauthor|forbidden/i.test(msg)) {
+    return '⚠️ Fitur ini butuh key valid (cek JERE_API_KEY / kuota habis). Coba lagi nanti ya.';
   }
-  if (/tidak mengembalikan|status gagal|http 4|http 5/i.test(msg)) {
-    return `❌ Layanan Jere sedang sibuk. Coba lagi nanti ya. (${msg.slice(0, 120)})`;
+  if (/tidak mengembalikan|status gagal|http 4|http 5|timeout|522|523|503|502|gagal/i.test(msg)) {
+    return `❌ Layanan Server sedang sibuk. Coba lagi nanti ya. (${msg.slice(0, 120)})`;
   }
   return `❌ ${msg.slice(0, 300)}`;
 };
