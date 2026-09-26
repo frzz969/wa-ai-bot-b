@@ -302,14 +302,18 @@ function header(pushName, prefix, opts = {}) {
   );
 }
 
-// Untuk .menu all: tiap kategori dalam kotak ╭─「 」, SATU command per baris.
+// Untuk .menu all: kotak TANPA tepi kanan (╭─「 T 」 / ╰─) supaya tidak pernah
+// miring di font WhatsApp yang proporsional. Satu command per baris + keterangan.
 function renderCategoryBox(cat) {
-  const out = [];
+  const out = [`╭─「 ${cat.title} 」`];
+  let labeled = false;
   for (const [n, d, f] of cat.items) {
-    if (n === '@grup') { out.push(`│`); out.push(`│ *${d}*`); continue; }
-    out.push(`│ ${PREFIX_}${n}${badges(f)}`);
+    if (n === '@grup') { out.push(`│ ${d}`); labeled = true; continue; }
+    if (!labeled) { out.push('│ Langsung:'); labeled = true; }
+    out.push(`│ ${PREFIX_}${n}${badges(f)} — ${d}`);
   }
-  return `╭─「 ${cat.title} 」─╮\n${out.join('\n')}\n╰${'─'.repeat(Math.max(4, cat.title.length + 8))}╯`;
+  out.push('╰─');
+  return out.join('\n');
 }
 
 // Penuh untuk .menu <kategori>, dengan sub-judul.
@@ -365,13 +369,16 @@ FOOTER_NOTE
   );
 }
 
-function allMode(prefix) {
+function allMode(prefix, pushName, opts) {
   PREFIX_ = prefix;
+  const { date } = nowParts();
   return (
 `${RUL}\n` +
 `*SONEZZ AI ASSISTANT*\n` +
 `AI · Media · Utility\n` +
 `${RUL}\n\n` +
+`Halo kak _${String(pushName || 'kak').toLowerCase()}_ 👋, ada yang bisa dibantu?\n` +
+`🕐 ${date} · 🔑 Prefix \`${prefix}\`\n\n` +
 CATEGORIES.map(renderCategoryBox).join('\n\n') +
 `\n\n${RUL}\n` +
 `*Private* → chat bebas\n` +
@@ -402,7 +409,7 @@ function buildMenu(pushName, prefix, mode, opts) {
   const o = opts || {};
   const q = String(mode || '').trim().toLowerCase();
   PREFIX_ = prefix;
-  if (q === 'all') return allMode(prefix);
+  if (q === 'all') return allMode(prefix, pushName, o);
   if (q === 'list' || q === 'kategori' || q === 'category') return listMode(prefix, o);
   if (q) return categoryMode(q, prefix, o);
   return defaultMode(pushName, prefix, o);
