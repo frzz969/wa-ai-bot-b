@@ -40,17 +40,11 @@ async function handleBot(ctx) {
       if (bagian.length === 1) {
         await sendMenuWithHeader(sock, jid, m, bagian[0]);
       } else {
-        // SAFEST: kirim sebagai dokumen teks 1 file (menyisakan room untuk
-        // 205 command tanpa dipecah jadi beberapa pesan terpisah).
-        const fname = `sonezz-menu-${new Date().toISOString().slice(0, 10)}.txt`;
-        try {
-          await sock.sendMessage(jid, { document: Buffer.from(teks, 'utf8'), mimetype: 'text/plain', fileName: fname, caption: '📋 *Daftar lengkap command Sonezz*' }, { quoted: m });
-        } catch (e) {
-          console.error('menu-doc', e?.message || e);
-          for (let i = 0; i < bagian.length; i++) {
-            const suffix = bagian.length > 1 ? `\n\n_(bagian ${i + 1}/${bagian.length})_` : '';
-            await safeReply(sock, jid, bagian[i] + suffix, m);
-          }
+        // Menu panjang: kirim LANGSUNG di chat, dipecah berurutan.
+        // (Dulu優先 jadi file .txt - padahal user lebih suka baca di chat.)
+        for (let i = 0; i < bagian.length; i++) {
+          const suffix = bagian.length > 1 ? `\n\n_(lanjutan ${i + 1}/${bagian.length})_` : '';
+          await safeReply(sock, jid, bagian[i] + suffix, m);
         }
       }
       return true;
