@@ -302,20 +302,14 @@ function header(pushName, prefix, opts = {}) {
   );
 }
 
-// Untuk .menu all: tiap kategori dalam kotak ╭─「 」, sub-judul "Reply ... untuk:".
+// Untuk .menu all: tiap kategori dalam kotak ╭─「 」, SATU command per baris.
 function renderCategoryBox(cat) {
-  const groups = [];
-  let cur = null;
+  const out = [];
   for (const [n, d, f] of cat.items) {
-    if (n === '@grup') { cur = { label: d, cmds: [] }; groups.push(cur); continue; }
-    const cmd = `${PREFIX_}${n}${badges(f)}`;
-    if (!cur) { cur = { label: null, cmds: [] }; groups.push(cur); }
-    cur.cmds.push(cmd);
+    if (n === '@grup') { out.push(`│`); out.push(`│ *${d}*`); continue; }
+    out.push(`│ ${PREFIX_}${n}${badges(f)}`);
   }
-  const body = groups
-    .map((g) => (g.label ? `│ *${g.label}*\n│ ${g.cmds.join(' ')}` : `│ ${g.cmds.join(' ')}`))
-    .join('\n');
-  return `╭─「 ${cat.title} 」─╮\n${body}\n╰${'─'.repeat(Math.max(4, cat.title.length + 8))}╯`;
+  return `╭─「 ${cat.title} 」─╮\n${out.join('\n')}\n╰${'─'.repeat(Math.max(4, cat.title.length + 8))}╯`;
 }
 
 // Penuh untuk .menu <kategori>, dengan sub-judul.
