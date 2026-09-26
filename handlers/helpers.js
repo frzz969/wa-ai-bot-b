@@ -26,13 +26,64 @@ function normalizeNum(jid) {
   return String(jid || '').split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
 }
 
-// Owner dicocokkan dari participant DAN remoteJid (Baileys baru kirim @lid di grup).
-function isOwner(participant, remoteJid) {
-  if (!config.OWNER_NUMBER) return false;
-  // Baileys baru kirim @lid di grup: cocokkan participant DAN remoteJid
-  return [normalizeNum(participant), normalizeNum(remoteJid)].some(
-    (n) => n !== '' && n === config.OWNER_NUMBER
-  );
+// Semua nomor owner dari config. OWNER_NUMBER boleh berisi beberapa nomor,
+// dipisah koma/spasi (mis. "628123,628456").
+function ownerNumbers() {
+  return String(config.OWNER_NUMBER || '')
+    .split(/[,\s]+/)
+    .map((n) => n.replace(/[^0-9]/g, ''))
+    .filter((n) => n.length >= 6);
+}
+
+// Cocokkan satu kandidat (participant / remoteJid / sender) ke daftar owner.
+// WA sekarang mengirim @lid (bukan nomor HP) di grup, jadi cocokkan:
+//   1. digit penuh sama persis
+//   2. 10 digit terakhir sama (menutup beda kode negara / leading 0)
+function matchesOwner(candidate, owners) {
+  const c = normalizeNum(candidate);
+  if (!c) return false;
+  for (const o of owners) {
+    if (c === o) return true;
+    if (c.length >= 10 && o.length >= 10 && c.slice(-10) === o.slice(-10)) return true;
+  }
+  return false;
+}
+
+// Owner dicek dari participant, remoteJid, dan sender sekaligus.
+function isOwner(participant, remoteJid, sender) {
+  const owners = ownerNumbers();
+  if (!owners.length) return false;
+  return [participant, remoteJid, sender].some((c) => matchesOwner(c, owners));
+}
+
+// Di grup, WhatsApp kini mengirim "@lid" (bukan nomor HP) sebagai participant,
+// jadi Owner tidak bisa dicocokkan dari angka. Coba resolusi LID -> nomor HP
+// lewat signalRepository Baileys. Kalau gagal, apa adanya (tidak error).
+async function isOwnerAsync(sock, participant, remoteJid, sender) {
+  if (isOwner(participant, remoteJid, sender)) return true;
+  const owners = ownerNumbers();
+  if (!owners.length) return false;
+
+  const lids = [participant, sender]
+    .map((x) => String(x || ''))
+    .filter((x) => x.includes('@lid'));
+  if (!lids.length) return false;
+
+  const map = sock?.signalRepository?.lidMapping;
+  if (!map || typeof map.getPNForLID !== 'function') return false;
+
+  for (const lid of lids) {
+    try {
+      const pn = await Promise.race([
+        map.getPNForLID(lid),
+        new Promise((r) => setTimeout(() => r(null), 3000)),
+      ]);
+      if (pn && matchesOwner(String(pn).replace(/:\d+@/, '@'), owners)) return true;
+    } catch {
+      // abaikan: mapping LID sering gagal, tidak boleh menggagalkan menu
+    }
+  }
+  return false;
 }
 
 // Nomor bot sendiri, tanpa @ dan :device.
@@ -71,7 +122,10 @@ module.exports = {
   scopeKey,
   mapSetCapped,
   normalizeNum,
+  ownerNumbers,
+  matchesOwner,
   isOwner,
+  isOwnerAsync,
   botJidNormalized,
   withTimeout,
   chunkText,

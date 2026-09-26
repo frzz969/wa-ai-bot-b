@@ -299,10 +299,7 @@ const CATEGORIES = [
   },
 ];
 
-const FOOTER_NOTE =
-  `> 🌟 = fitur Jere (butuh JERE_API_KEY valid di .env)\n` +
-  `> 💬 = perlu reply pesan\n` +
-  `> powered by *Sonezz* · ai · media · utility`;
+const FOOTER_NOTE = `> powered by *Sonezz* · ai · media · utility`;
 
 function nowParts() {
   const d = new Date();
@@ -354,10 +351,21 @@ function line(cat, name, desc, flag) {
   return `  ┣ ${PREFIX_}${name}${tag} — ${desc}`;
 }
 
-function renderCategory(cat) {
+function renderCategory(cat, opts = {}) {
+  // Ringkas: hanya nama command (tanpa keterangan) supaya muat dalam 1 pesan.
+  const lines = cat.items.map(([n, d, f]) => {
+    const badges = [];
+    if (f && f.jere) badges.push('🌟');
+    if (f && f.reply) badges.push('💬');
+    if (f && f.owner) badges.push('👑');
+    const tag = badges.length ? ' ' + badges.join('') : '';
+    return opts.compact
+      ? `${PREFIX_}${n}${tag}`
+      : `  ┣ ${PREFIX_}${n}${tag} — ${d}`;
+  });
   return (
 `╭── [ *${cat.title}* ]\n` +
-cat.items.map(([n, d, f]) => line(cat, n, d, f)).join('\n') +
+lines.join(opts.compact ? '  ·  ' : '\n') +
 `\n╰──────────────`
   );
 }
@@ -408,8 +416,9 @@ FOOTER_NOTE
 
 function allMode(prefix) {
   PREFIX_ = prefix;
+  // Ringkas (tanpa keterangan) supaya seluruh 205 command muat dalam SATU pesan.
   return (
-CATEGORIES.map((c) => renderCategory(c)).join('\n\n') +
+CATEGORIES.map((c) => renderCategory(c, { compact: true })).join('\n\n') +
 `\n\n` + FOOTER_NOTE
   );
 }
@@ -423,11 +432,18 @@ defaultMode('user', prefix, opts) +
 `\n\n❌ Kategori *"${query}"* tidak ada. Coba \`${prefix}menu list\` untuk daftar kategori.`
     );
   }
+  // Kategori tidak perlu profile/stats diulang - cukup isi + cara pakai.
   return (
 `╭── [ *${cat.title}* ]\n` +
-cat.items.map(([n, d, f]) => line(cat, n, d, f)).join('\n') +
+cat.items.map(([n, d, f]) => {
+  const badges = [];
+  if (f && f.jere) badges.push('🌟');
+  if (f && f.reply) badges.push('💬');
+  if (f && f.owner) badges.push('👑');
+  return `  ┣ ${PREFIX_}${n}${badges.length ? ' ' + badges.join('') : ''} — ${d}`;
+}).join('\n') +
 `\n╰──────────────\n\n` +
-`> ketik \`${prefix}menu all\` untuk lihat semua kategori\n\n` +
+`> ketik \`${prefix}menu all\` untuk semua kategori · \`${prefix}menu list\` untuk daftar\n\n` +
 FOOTER_NOTE
   );
 }

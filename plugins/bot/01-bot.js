@@ -14,6 +14,7 @@ const {
   runCooldown,
   lastDoc,
   isOwner,
+  isOwnerAsync,
   getDisplayName,
   safeReply,
   sendMenuWithHeader,
@@ -27,17 +28,29 @@ async function handleBot(ctx) {
     // .menu list           ? daftar kategori
     // .menu <kategori>     ? isi satu kategori
     if (cmd === 'menu' || cmd === 'help' || cmd === 'cmd') {
-      const teks = menuText(getDisplayName(m) || 'kak', prefix, args, {
-        isOwner: isOwner(m.key.participant || sender, jid),
+      // Nama tampilan: pushName -> nomor pengirim -> "user" (dulu jatuh ke "kak"
+      // sehingga kolom name selalu kosong di private chat).
+      const rawName = String(getDisplayName(m) || '').trim();
+      const number = String(sender || '').split('@')[0].replace(/\D/g, '');
+      const who = rawName || number || 'user';
+      const teks = menuText(who, prefix, args, {
+        isOwner: await isOwnerAsync(sock, m.key.participant, jid, sender),
       });
-      const bagian = splitMessage(teks, 3400);
+      const bagian = splitMessage(teks, 3900);
       if (bagian.length === 1) {
         await sendMenuWithHeader(sock, jid, m, bagian[0]);
       } else {
-        // Menu panjang: kirim sebagai teks bertahap (header gambar hanya untuk ringkasan).
-        for (let i = 0; i < bagian.length; i++) {
-          const suffix = bagian.length > 1 ? `\n\n_(bagian ${i + 1}/${bagian.length})_` : '';
-          await safeReply(sock, jid, bagian[i] + suffix, m);
+        // SAFEST: kirim sebagai dokumen teks 1 file (menyisakan room untuk
+        // 205 command tanpa dipecah jadi beberapa pesan terpisah).
+        const fname = `sonezz-menu-${new Date().toISOString().slice(0, 10)}.txt`;
+        try {
+          await sock.sendMessage(jid, { document: Buffer.from(teks, 'utf8'), mimetype: 'text/plain', fileName: fname, caption: '📋 *Daftar lengkap command Sonezz*' }, { quoted: m });
+        } catch (e) {
+          console.error('menu-doc', e?.message || e);
+          for (let i = 0; i < bagian.length; i++) {
+            const suffix = bagian.length > 1 ? `\n\n_(bagian ${i + 1}/${bagian.length})_` : '';
+            await safeReply(sock, jid, bagian[i] + suffix, m);
+          }
         }
       }
       return true;
