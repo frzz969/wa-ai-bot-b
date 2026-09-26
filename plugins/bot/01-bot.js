@@ -1,4 +1,4 @@
-﻿// handlers/bot.js â€” BOT: menu/help, ping, about, status, run (owner), rules & anime saran
+// handlers/bot.js — BOT: menu/help, ping, about, status, run (owner), rules & anime saran
 // Diekstrak verbatim dari handlers/messages.js; tanpa perubahan perilaku.
 // Dipanggil router handlers/messages.js sesuai urutan asli. Return true = tertangani.
 const { menuText, splitMessage } = require('../../handlers/menu');
@@ -22,10 +22,10 @@ const {
 async function handleBot(ctx) {
   const { sock, m, jid, isGroup, sender, body, cmd, args, prefix, start, unwrapped } = ctx;
     // ---------- MENU ----------
-    // .menu / .help        → ringkasan + navigasi
-    // .menu all            → semua command per kategori
-    // .menu list           → daftar kategori
-    // .menu <kategori>     → isi satu kategori
+    // .menu / .help        ? ringkasan + navigasi
+    // .menu all            ? semua command per kategori
+    // .menu list           ? daftar kategori
+    // .menu <kategori>     ? isi satu kategori
     if (cmd === 'menu' || cmd === 'help' || cmd === 'cmd') {
       const teks = menuText(getDisplayName(m) || 'kak', prefix, args, {
         isOwner: isOwner(m.key.participant || sender, jid),
@@ -44,33 +44,33 @@ async function handleBot(ctx) {
     }
 
     if (cmd === 'ping') {
-      await safeReply(sock, jid, `ðŸ“ Pong! ${Date.now() - start} ms`, m); return true;
+      await safeReply(sock, jid, `🏓 Pong! ${Date.now() - start} ms`, m); return true;
     }
 
     // ---------- 10. BOT: about / status ----------
     if (cmd === 'about') {
       await sendMenuWithHeader(
         sock, jid, m,
-        `ðŸ¤– *SONEZZ AI ASSISTANT*\n\n` +
+        `🤖 *SONEZZ AI ASSISTANT*\n\n` +
         `*SONEZZ* adalah WhatsApp AI Assistant yang menggabungkan AI, utility, media, downloader, game, dan berbagai fitur lainnya dalam satu bot.\n\n` +
-        `*âœ¦ FEATURES*\n\n` +
-        `ðŸ’¬ *AI Chat* â€” ngobrol, tanya jawab, curhat, dan memory\n` +
-        `ðŸ§  *AI Tools* â€” explain, summarize, rewrite, translate, dan ideas\n` +
-        `ðŸ’» *Coding* â€” generate, debug, dan fix kode\n` +
-        `ðŸŒ *Web & Info* â€” search, news, weather, dan berbagai utility\n` +
-        `ðŸŽ¨ *Creative* â€” generate gambar dan bantu membuat konten\n` +
-        `ðŸ‘ï¸ *Vision & Voice* â€” OCR, analisis gambar, transcribe, dan TTS\n` +
-        `ðŸ“¥ *Downloader* â€” download berbagai media\n` +
-        `ðŸŽ² *Fun & RPG* â€” game, random tools, quest, dan leaderboard\n` +
-        `ðŸ’° *Economy* â€” daily, work, bank, transfer, mining, dan progression\n` +
-        `ðŸ‘¥ *Group Tools* â€” moderation dan pengaturan grup\n\n` +
-        `*âœ¦ ABOUT*\n\n` +
+        `*✦ FEATURES*\n\n` +
+        `💬 *AI Chat* — ngobrol, tanya jawab, curhat, dan memory\n` +
+        `🧠 *AI Tools* — explain, summarize, rewrite, translate, dan ideas\n` +
+        `💻 *Coding* — generate, debug, dan fix kode\n` +
+        `🌐 *Web & Info* — search, news, weather, dan berbagai utility\n` +
+        `🎨 *Creative* — generate gambar dan bantu membuat konten\n` +
+        `👁️ *Vision & Voice* — OCR, analisis gambar, transcribe, dan TTS\n` +
+        `📥 *Downloader* — download berbagai media\n` +
+        `🎲 *Fun & RPG* — game, random tools, quest, dan leaderboard\n` +
+        `💰 *Economy* — daily, work, bank, transfer, mining, dan progression\n` +
+        `👥 *Group Tools* — moderation dan pengaturan grup\n\n` +
+        `*✦ ABOUT*\n\n` +
         `SONEZZ dikembangkan sebagai project WhatsApp bot dengan berbagai fitur yang bisa digunakan langsung dari chat.\n\n` +
         `Setiap fitur dibuat untuk kebutuhan yang berbeda, mulai dari ngobrol dengan AI, mencari informasi, mengolah media dan dokumen, sampai bermain dan mengelola grup.\n\n` +
         `Ketik ${prefix}menu untuk melihat seluruh command yang tersedia.\n\n` +
-        `â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n` +
+        `━━━━━━━━━━━━━━━━━━\n` +
         `*SONEZZ AI ASSISTANT*\n` +
-        `_WhatsApp AI Â· Utility Â· Media Â· Fun_`
+        `_WhatsApp AI · Utility · Media · Fun_`
       ); return true;
     }
     if (cmd === 'status') {
@@ -80,11 +80,11 @@ async function handleBot(ctx) {
       const s = up % 60;
       await safeReply(
         sock, jid,
-        `ðŸ“Š *Status Bot*\n` +
-        `â€¢ Uptime: ${h}j ${mi}m ${s}d\n` +
-        `â€¢ Model: ${config.GEMINI_MODEL} + ${config.GROQ_CHAT_MODEL}\n` +
-        `â€¢ Chat di memory: ${countChats()} jid\n` +
-        `â€¢ Dokumen tersimpan: ${lastDoc.size} chat`,
+        `📊 *Status Bot*\n` +
+        `• Uptime: ${h}j ${mi}m ${s}d\n` +
+        `• Model: ${config.GEMINI_MODEL} + ${config.GROQ_CHAT_MODEL}\n` +
+        `• Chat di memory: ${countChats()} jid\n` +
+        `• Dokumen tersimpan: ${lastDoc.size} chat`,
         m
       ); return true;
     }
@@ -92,11 +92,11 @@ async function handleBot(ctx) {
     // ---------- .run (eksekusi JS aman, OWNER ONLY) ----------
     if (cmd === 'run') {
       if (!isOwner(m.key.participant, m.key.remoteJid)) {
-        await safeReply(sock, jid, 'â›” Hanya owner yang bisa pakai perintah ini.', m); return true;
+        await safeReply(sock, jid, '⛔ Hanya owner yang bisa pakai perintah ini.', m); return true;
       }
       const lastRun = runCooldown.get(sender) || 0;
       if (Date.now() - lastRun < 5000) {
-        await safeReply(sock, jid, 'â³ Cooldown .run 5 detik, tunggu sebentar.', m); return true;
+        await safeReply(sock, jid, '⏳ Cooldown .run 5 detik, tunggu sebentar.', m); return true;
       }
 
       // Ambil kode: argumen langsung, atau reply ke pesan berisi kode
@@ -114,11 +114,11 @@ async function handleBot(ctx) {
       console.log(`[RUN] ${sender} :: ${code.slice(0, 200)}`);
       try {
         const out = await runSandboxed(code);
-        await safeReply(sock, jid, `ðŸ’» *Hasil:*\n${out}`, m); return true;
+        await safeReply(sock, jid, `💻 *Hasil:*\n${out}`, m); return true;
       } catch (e) {
         console.error('run', e?.message || e);
         const msg = String((e && e.message) || e || 'Error').slice(0, 500);
-        await safeReply(sock, jid, `âŒ Error:\n${msg}`, m); return true;
+        await safeReply(sock, jid, `❌ Error:\n${msg}`, m); return true;
       }
     }
 

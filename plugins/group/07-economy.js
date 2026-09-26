@@ -1,4 +1,4 @@
-﻿// handlers/economy.js â€” ECONOMY/RPG-level: level, leaderboard, limit, dompet, transfer, mining
+// handlers/economy.js — ECONOMY/RPG-level: level, leaderboard, limit, dompet, transfer, mining
 // Diekstrak verbatim dari handlers/messages.js; tanpa perubahan perilaku.
 // Dipanggil router handlers/messages.js sesuai urutan asli. Return true = tertangani.
 const S = require('../../handlers/state');
@@ -14,7 +14,7 @@ async function handleEconomy(ctx) {
       const lv = systems.getLevel(sender);
       await safeReply(
         sock, jid,
-        `â­ *Level @${String(sender).split('@')[0]}*\nLevel: ${lv.level}\nXP: ${lv.xp}/${systems.requiredXp(lv.level)}`,
+        `⭐ *Level @${String(sender).split('@')[0]}*\nLevel: ${lv.level}\nXP: ${lv.xp}/${systems.requiredXp(lv.level)}`,
         m
       ); return true;
     }
@@ -27,11 +27,11 @@ async function handleEconomy(ctx) {
     }
     if (cmd === 'limit') {
       const l = systems.getLimit(sender);
-      await safeReply(sock, jid, `â³ *Limit harian:* ${l.remaining}/${l.max} tersisa.`, m); return true;
+      await safeReply(sock, jid, `⏳ *Limit harian:* ${l.remaining}/${l.max} tersisa.`, m); return true;
     }
     if (cmd === 'dompet' || cmd === 'wallet' || cmd === 'saldo' || cmd === 'balance') {
       const bal = systems.getBalance(sender);
-      await safeReply(sock, jid, `ðŸ’° *Dompet @${String(sender).split('@')[0]}:* ${bal} koin.`, m); return true;
+      await safeReply(sock, jid, `💰 *Dompet @${String(sender).split('@')[0]}:* ${bal} koin.`, m); return true;
     }
     if (cmd === 'transfer' || cmd === 'tf') {
       const targets = groupLane.resolveTargets(m, args);
@@ -47,7 +47,7 @@ async function handleEconomy(ctx) {
     if (cmd === 'mining' || cmd === 'mine' || cmd === 'nambang') {
       const r = systems.mine(sender);
       if (!r.ok) { await safeReply(sock, jid, r.msg, m); return true; }
-      await safeReply(sock, jid, `â›ï¸ Dapat *${r.reward}* koin! Saldo: ${r.balance}.`, m); return true;
+      await safeReply(sock, jid, `⛏️ Dapat *${r.reward}* koin! Saldo: ${r.balance}.`, m); return true;
     }
 
   return false;

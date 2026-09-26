@@ -1,4 +1,4 @@
-﻿// handlers/sticker.js â€” STICKER & MEDIA + VISION + CREATIVE-media: img, stiker, ocr/describe/analyze, toimg, stickerwm, attp/ttp, triggered, emoji, iqc, nulis
+// handlers/sticker.js — STICKER & MEDIA + VISION + CREATIVE-media: img, stiker, ocr/describe/analyze, toimg, stickerwm, attp/ttp, triggered, emoji, iqc, nulis
 // Diekstrak verbatim dari handlers/messages.js; tanpa perubahan perilaku.
 // Dipanggil router handlers/messages.js sesuai urutan asli. Return true = tertangani.
 const S = require('../../handlers/state');
@@ -31,7 +31,7 @@ async function handleSticker(ctx) {
       if (!args) {
         await safeReply(sock, jid, `Contoh: ${prefix}img kucing astronot di bulan, ultra detail`, m); return true;
       }
-      await interim(sock, jid, m, 'ðŸŽ¨ Lagi digambar...');
+      await interim(sock, jid, m, '🎨 Lagi digambar...');
       // 1024px HD + 25 dtk/percobaan, retry MAKS 1x seed beda
       const tryImg = async (seed) => {
         const url =
@@ -54,12 +54,12 @@ async function handleSticker(ctx) {
         pushMessage(jid, 'bot', '[mengirim gambar]');
         await sock.sendMessage(
           jid,
-          { image: buf, caption: `ðŸŽ¨ *${args}*` },
+          { image: buf, caption: `🎨 *${args}*` },
           { quoted: m }
         );
       } catch (e) {
         console.error('img', e?.message || e);
-        await safeReply(sock, jid, 'âŒ Gagal membuat gambar setelah 2x coba. Coba prompt lain / ulangi sebentar lagi ya.', m); return true;
+        await safeReply(sock, jid, '❌ Gagal membuat gambar setelah 2x coba. Coba prompt lain / ulangi sebentar lagi ya.', m); return true;
       }
       return true;
     }
@@ -79,7 +79,7 @@ async function handleSticker(ctx) {
           await sock.sendMessage(jid, { sticker: webp }, { quoted: m });
         } catch (e) {
           console.error('stiker', e?.message || e);
-          await safeReply(sock, jid, 'âŒ Gagal membuat stiker dari gambar. Coba gambar lain.', m);
+          await safeReply(sock, jid, '❌ Gagal membuat stiker dari gambar. Coba gambar lain.', m);
         }
         return true;
       }
@@ -91,7 +91,7 @@ async function handleSticker(ctx) {
           await sock.sendMessage(jid, { sticker: webp }, { quoted: m });
         } catch (e) {
           console.error('stiker', e?.message || e);
-          await safeReply(sock, jid, 'âŒ Gagal membuat stiker teks.', m);
+          await safeReply(sock, jid, '❌ Gagal membuat stiker teks.', m);
         }
         return true;
       }
@@ -104,14 +104,14 @@ async function handleSticker(ctx) {
           await sock.sendMessage(jid, { sticker: webp }, { quoted: m });
         } catch (e) {
           console.error('stiker', e?.message || e);
-          await safeReply(sock, jid, 'âŒ Gagal membuat stiker dari gambar terakhir.', m);
+          await safeReply(sock, jid, '❌ Gagal membuat stiker dari gambar terakhir.', m);
         }
         return true;
       }
 
       await safeReply(
         sock, jid,
-        `Cara pakai:\nâ€¢ reply gambar + ${prefix}stiker\nâ€¢ ${prefix}stiker <teks>\nâ€¢ ${prefix}img <prompt> lalu ${prefix}stiker`,
+        `Cara pakai:\n• reply gambar + ${prefix}stiker\n• ${prefix}stiker <teks>\n• ${prefix}img <prompt> lalu ${prefix}stiker`,
         m
       ); return true;
     }
@@ -126,14 +126,14 @@ async function handleSticker(ctx) {
         if (!quotedImg && !currentImg) {
           await safeReply(sock, jid, `Reply gambar + ${prefix}ocr untuk membaca teks di gambar.`, m); return true;
         }
-        await interim(sock, jid, m, 'ðŸ“ Lagi membaca teks di gambar...');
+        await interim(sock, jid, m, '📝 Lagi membaca teks di gambar...');
         const target = quotedImg ? wrapQuoted(jid, quoted) : m;
         const buf = await downloadBuffer(target, sock);
         const text = await toolsRemote.ocrImage(buf);
-        await safeReply(sock, jid, `ðŸ“ *Hasil OCR:*\n${text}`, m); return true;
+        await safeReply(sock, jid, `📝 *Hasil OCR:*\n${text}`, m); return true;
       } catch (e) {
         console.error('ocr', e?.message || e);
-        await safeReply(sock, jid, 'âŒ OCR gagal. Coba gambar lain yang tulisannya jelas ya.', m); return true;
+        await safeReply(sock, jid, '❌ OCR gagal. Coba gambar lain yang tulisannya jelas ya.', m); return true;
       }
     }
     if (cmd === 'describe' || cmd === 'deskripsi') {
@@ -153,10 +153,10 @@ async function handleSticker(ctx) {
       try {
         const buf = await downloadBuffer(wrapQuoted(jid, quoted), sock);
         const jpg = await mediaTools.toimg(buf);
-        await sock.sendMessage(jid, { image: jpg, caption: 'ðŸ–¼ï¸ toimg' }, { quoted: m });
+        await sock.sendMessage(jid, { image: jpg, caption: '🖼️ toimg' }, { quoted: m });
       } catch (e) {
         console.error('toimg', e?.message || e);
-        await safeReply(sock, jid, 'âŒ Gagal mengubah stiker jadi gambar.', m); return true;
+        await safeReply(sock, jid, '❌ Gagal mengubah stiker jadi gambar.', m); return true;
       }
       return true;
     }
@@ -175,7 +175,7 @@ async function handleSticker(ctx) {
         await sock.sendMessage(jid, { sticker: signed }, { quoted: m });
       } catch (e) {
         console.error('stickerwm', e?.message || e);
-        await safeReply(sock, jid, 'âŒ Gagal membuat stiker watermark.', m); return true;
+        await safeReply(sock, jid, '❌ Gagal membuat stiker watermark.', m); return true;
       }
       return true;
     }
@@ -187,7 +187,7 @@ async function handleSticker(ctx) {
         await sock.sendMessage(jid, { sticker: webp }, { quoted: m });
       } catch (e) {
         console.error(cmd, e?.message || e);
-        await safeReply(sock, jid, `âŒ Gagal membuat ${cmd}.`, m); return true;
+        await safeReply(sock, jid, `❌ Gagal membuat ${cmd}.`, m); return true;
       }
       return true;
     }
@@ -198,26 +198,26 @@ async function handleSticker(ctx) {
       if (!quotedImg && !currentImg) {
         await safeReply(sock, jid, `Reply gambar + ${prefix}triggered`, m); return true;
       }
-      await interim(sock, jid, m, 'âš¡ Lagi bikin TRIGGERED...');
+      await interim(sock, jid, m, '⚡ Lagi bikin TRIGGERED...');
       try {
         const target = quotedImg ? wrapQuoted(jid, quoted) : m;
         const buf = await downloadBuffer(target, sock);
         const gif = await mediaTools.triggered(buf);
-        await sock.sendMessage(jid, { image: gif, caption: 'âš¡ TRIGGERED' }, { quoted: m });
+        await sock.sendMessage(jid, { image: gif, caption: '⚡ TRIGGERED' }, { quoted: m });
       } catch (e) {
         console.error('triggered', e?.message || e);
-        await safeReply(sock, jid, 'âŒ Gagal membuat triggered.', m); return true;
+        await safeReply(sock, jid, '❌ Gagal membuat triggered.', m); return true;
       }
       return true;
     }
     if (cmd === 'emoji' || cmd === 'emojipng') {
-      if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}emoji ðŸ˜­`, m); return true; }
+      if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}emoji 😭`, m); return true; }
       try {
         const png = await mediaTools.emojitopng(args);
-        await sock.sendMessage(jid, { image: png, caption: `ðŸ˜€ ${args.split(/\s+/)[0]}` }, { quoted: m });
+        await sock.sendMessage(jid, { image: png, caption: `😀 ${args.split(/\s+/)[0]}` }, { quoted: m });
       } catch (e) {
         console.error('emoji', e?.message || e);
-        await safeReply(sock, jid, 'âŒ Gagal render emoji.', m); return true;
+        await safeReply(sock, jid, '❌ Gagal render emoji.', m); return true;
       }
       return true;
     }
@@ -233,14 +233,14 @@ async function handleSticker(ctx) {
       if (!input) {
         await safeReply(sock, jid, `Contoh: ${prefix}iqc halo|light (tema: light/dark, bisa juga reply pesan + ${prefix}iqc)`, m); return true;
       }
-      await interim(sock, jid, m, 'ðŸ“± Lagi bikin iqc online...');
+      await interim(sock, jid, m, '📱 Lagi bikin iqc online...');
       try {
         const buf = await jereIqc(input);
         const label = String(input).split('|')[0].trim() || input;
-        await sock.sendMessage(jid, { image: buf, caption: `ðŸ“± *${label}*` }, { quoted: m });
+        await sock.sendMessage(jid, { image: buf, caption: `📱 *${label}*` }, { quoted: m });
       } catch (e) {
         console.error('iqc', e?.message || e);
-        await safeReply(sock, jid, `âŒ ${e?.message || 'Gagal membuat IQC online.'} Coba lagi atau pakai ${prefix}iqclocal.`, m); return true;
+        await safeReply(sock, jid, `❌ ${e?.message || 'Gagal membuat IQC online.'} Coba lagi atau pakai ${prefix}iqclocal.`, m); return true;
       }
       return true;
     }

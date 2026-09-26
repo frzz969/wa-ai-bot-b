@@ -1,4 +1,4 @@
-﻿// handlers/fun.js â€” FUN lokal
+// handlers/fun.js â€” FUN lokal
 // Diekstrak verbatim dari handlers/messages.js; tanpa perubahan perilaku.
 // Dipanggil router handlers/messages.js sesuai urutan asli. Return true = tertangani.
 const S = require('../../handlers/state');

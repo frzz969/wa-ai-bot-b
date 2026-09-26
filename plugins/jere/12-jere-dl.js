@@ -1,4 +1,4 @@
-﻿// handlers/jere-dl.js â€” JERE-DL
+// handlers/jere-dl.js — JERE-DL
 // Diekstrak verbatim dari handlers/messages.js; tanpa perubahan perilaku.
 // Dipanggil router handlers/messages.js sesuai urutan asli. Return true = tertangani.
 const S = require('../../handlers/state');
@@ -30,23 +30,23 @@ async function handleJereDl(ctx) {
         dlfb: 'dlfb <link facebook>', dlspot: 'dlspot <link spotify>',
       }[cmd] || `${cmd} <link>`;
       if (!url) { await safeReply(sock, jid, `Contoh: ${prefix}${usage}`, m); return true; }
-      await interim(sock, jid, m, 'â¬‡ï¸ Lagi download via Jere...');
+      await interim(sock, jid, m, '⬇️ Lagi download via Jere...');
       try {
         // --- File (kirim sebagai dokumen) ---
         if (cmd === 'dlmediafire' || cmd === 'dlmf') {
           const r = await jereDl.jereMediafire(url);
-          await sock.sendMessage(jid, { document: { url: r.url }, fileName: String(r.title || 'mediafire_file').slice(0, 100), mimetype: 'application/octet-stream', caption: `ðŸ“ ${r.title || 'MediaFire'}\nðŸ“¦ ${((r.meta || {}).filesize) || '-'}` }, { quoted: m }); return true;
+          await sock.sendMessage(jid, { document: { url: r.url }, fileName: String(r.title || 'mediafire_file').slice(0, 100), mimetype: 'application/octet-stream', caption: `📁 ${r.title || 'MediaFire'}\n📦 ${((r.meta || {}).filesize) || '-'}` }, { quoted: m }); return true;
         }
         if (cmd === 'dlterabox' || cmd === 'dltb') {
           const r = await jereDl.jereTerabox(url);
-          await sock.sendMessage(jid, { document: { url: r.url }, fileName: String(r.title || 'terabox_file').slice(0, 100), mimetype: 'application/octet-stream', caption: `ðŸ“¦ ${r.title || 'TeraBox'}\nðŸ“ ${((r.meta || {}).size) || '-'}` }, { quoted: m }); return true;
+          await sock.sendMessage(jid, { document: { url: r.url }, fileName: String(r.title || 'terabox_file').slice(0, 100), mimetype: 'application/octet-stream', caption: `📦 ${r.title || 'TeraBox'}\n📏 ${((r.meta || {}).size) || '-'}` }, { quoted: m }); return true;
         }
         if (cmd === 'dlsfile') {
           const r = await jereDl.jereSfile(url);
           const fileUrl = r.url || r.download || r.downloadUrl || '';
           const name = r.title || r.filename || 'sfile_download';
           if (!fileUrl) throw new Error('Jere API tidak mengembalikan link file SFile.');
-          await sock.sendMessage(jid, { document: { url: fileUrl }, fileName: String(name).slice(0, 100), mimetype: 'application/octet-stream', caption: `ðŸ“ ${name}` }, { quoted: m }); return true;
+          await sock.sendMessage(jid, { document: { url: fileUrl }, fileName: String(name).slice(0, 100), mimetype: 'application/octet-stream', caption: `📁 ${name}` }, { quoted: m }); return true;
         }
         // --- Audio (kirim sebagai audio) ---
         if (cmd === 'dlsound') {
@@ -68,25 +68,25 @@ async function handleJereDl(ctx) {
         // --- Video generik ---
         if (cmd === 'dlcapcut') {
           const r = await jereDl.jereCapcut(url);
-          await sock.sendMessage(jid, { video: { url: r.url }, mimetype: 'video/mp4', caption: `âœ‚ï¸ ${r.title || 'CapCut'}` }, { quoted: m }); return true;
+          await sock.sendMessage(jid, { video: { url: r.url }, mimetype: 'video/mp4', caption: `✂️ ${r.title || 'CapCut'}` }, { quoted: m }); return true;
         }
         if (cmd === 'dldouyin') {
           const r = await jereDl.jereDouyin(url);
           const v = r.url || r.video || r.videoUrl || r.download || '';
           if (!v) throw new Error('Jere API tidak mengembalikan link video Douyin.');
-          await sock.sendMessage(jid, { video: { url: v }, mimetype: 'video/mp4', caption: `ðŸŽ¬ ${r.title || 'Douyin'}` }, { quoted: m }); return true;
+          await sock.sendMessage(jid, { video: { url: v }, mimetype: 'video/mp4', caption: `🎬 ${r.title || 'Douyin'}` }, { quoted: m }); return true;
         }
         if (cmd === 'dlsnack') {
           const r = await jereDl.jereSnackVideo(url);
           const v = r.url || r.video || r.download || '';
           if (!v) throw new Error('Jere API tidak mengembalikan link video SnackVideo.');
-          await sock.sendMessage(jid, { video: { url: v }, mimetype: 'video/mp4', caption: `ðŸŽ¬ ${r.title || 'SnackVideo'}` }, { quoted: m }); return true;
+          await sock.sendMessage(jid, { video: { url: v }, mimetype: 'video/mp4', caption: `🎬 ${r.title || 'SnackVideo'}` }, { quoted: m }); return true;
         }
         if (cmd === 'dltwitter' || cmd === 'dlx') {
           const r = await jereDl.jereTwitter(url);
           const v = r.url || r.video || r.download || '';
           if (!v) throw new Error('Jere API tidak mengembalikan link video X/Twitter.');
-          await sock.sendMessage(jid, { video: { url: v }, mimetype: 'video/mp4', caption: `ðŸ¦ ${r.title || 'X/Twitter'}` }, { quoted: m }); return true;
+          await sock.sendMessage(jid, { video: { url: v }, mimetype: 'video/mp4', caption: `🐦 ${r.title || 'X/Twitter'}` }, { quoted: m }); return true;
         }
         if (cmd === 'dlthreads') {
           const r = await jereDl.jereThreads(url);
@@ -94,31 +94,31 @@ async function handleJereDl(ctx) {
           const first = list[0];
           const v = typeof first === 'string' ? first : (first && (first.url || first.download)) || '';
           if (!v) throw new Error('Jere API tidak mengembalikan media Threads.');
-          await sock.sendMessage(jid, { video: { url: v }, mimetype: 'video/mp4', caption: `ðŸ§µ ${r.title || 'Threads'}` }, { quoted: m }); return true;
+          await sock.sendMessage(jid, { video: { url: v }, mimetype: 'video/mp4', caption: `🧵 ${r.title || 'Threads'}` }, { quoted: m }); return true;
         }
         if (cmd === 'dlytmp4') {
           const r = await jereDl.jereYtmp4(url);
-          await sock.sendMessage(jid, { video: { url: r.url }, mimetype: 'video/mp4', caption: `ðŸŽ¬ ${r.title || 'YouTube'}` }, { quoted: m }); return true;
+          await sock.sendMessage(jid, { video: { url: r.url }, mimetype: 'video/mp4', caption: `🎬 ${r.title || 'YouTube'}` }, { quoted: m }); return true;
         }
         if (cmd === 'dlig') {
           const r = await jereDl.jereInstagram(url);
           const u = Array.isArray(r.url) ? r.url[0] : r.url;
           if (!u) throw new Error('Jere API tidak mengembalikan media Instagram.');
-          await sock.sendMessage(jid, { video: { url: u }, mimetype: 'video/mp4', caption: `ðŸ“¸ ${r.title || 'Instagram'}` }, { quoted: m }); return true;
+          await sock.sendMessage(jid, { video: { url: u }, mimetype: 'video/mp4', caption: `📸 ${r.title || 'Instagram'}` }, { quoted: m }); return true;
         }
         if (cmd === 'dlfb') {
           const r = await jereDl.jereFacebook(url);
-          await sock.sendMessage(jid, { video: { url: r.url }, mimetype: 'video/mp4', caption: `ðŸ“˜ ${r.title || 'Facebook'}` }, { quoted: m }); return true;
+          await sock.sendMessage(jid, { video: { url: r.url }, mimetype: 'video/mp4', caption: `📘 ${r.title || 'Facebook'}` }, { quoted: m }); return true;
         }
         if (cmd === 'dltt') {
           const r = await jereDl.jereTiktok(url);
           if (Array.isArray(r.url)) {
             for (const img of r.url.slice(0, 5)) {
-              await sock.sendMessage(jid, { image: { url: img }, caption: `ðŸŽµ ${r.title || 'TikTok'}` }, { quoted: m });
+              await sock.sendMessage(jid, { image: { url: img }, caption: `🎵 ${r.title || 'TikTok'}` }, { quoted: m });
             }
             return true;
           }
-          await sock.sendMessage(jid, { video: { url: r.url }, mimetype: 'video/mp4', caption: `ðŸŽµ ${r.title || 'TikTok'}` }, { quoted: m }); return true;
+          await sock.sendMessage(jid, { video: { url: r.url }, mimetype: 'video/mp4', caption: `🎵 ${r.title || 'TikTok'}` }, { quoted: m }); return true;
         }
         // --- Pinterest / Telegram / AIO generik ---
         if (cmd === 'dlpin') {
@@ -126,9 +126,9 @@ async function handleJereDl(ctx) {
           const u = r.url || r.image || r.video || r.download || '';
           if (!u) throw new Error('Jere API tidak mengembalikan media Pinterest.');
           if (/\.(mp4|mov|webm)($|\?)/i.test(String(u))) {
-            await sock.sendMessage(jid, { video: { url: u }, mimetype: 'video/mp4', caption: `ðŸ“Œ ${r.title || 'Pinterest'}` }, { quoted: m }); return true;
+            await sock.sendMessage(jid, { video: { url: u }, mimetype: 'video/mp4', caption: `📌 ${r.title || 'Pinterest'}` }, { quoted: m }); return true;
           }
-          await sock.sendMessage(jid, { image: { url: u }, caption: `ðŸ“Œ ${r.title || 'Pinterest'}` }, { quoted: m }); return true;
+          await sock.sendMessage(jid, { image: { url: u }, caption: `📌 ${r.title || 'Pinterest'}` }, { quoted: m }); return true;
         }
         if (cmd === 'dltele') {
           const r = await jereDl.jereStickerTele(url);
@@ -136,7 +136,7 @@ async function handleJereDl(ctx) {
           const first = list[0] || r.url;
           const u = typeof first === 'string' ? first : (first && (first.url || first.image)) || '';
           if (!u) throw new Error('Jere API tidak mengembalikan stiker Telegram.');
-          await sock.sendMessage(jid, { image: { url: u }, caption: `ðŸŽ­ Stiker Telegram: ${r.title || '-'}` }, { quoted: m }); return true;
+          await sock.sendMessage(jid, { image: { url: u }, caption: `🎭 Stiker Telegram: ${r.title || '-'}` }, { quoted: m }); return true;
         }
         // dlaio / dlfast
         const r = cmd === 'dlfast' ? await jereDl.jereFastDl(url) : await jereDl.jereAio(url);
@@ -147,7 +147,7 @@ async function handleJereDl(ctx) {
         if (/\.(mp3|ogg|m4a|wav)($|\?)/i.test(String(u))) {
           await sock.sendMessage(jid, { audio: { url: u }, mimetype: 'audio/mpeg', ptt: false }, { quoted: m }); return true;
         }
-        await sock.sendMessage(jid, { video: { url: u }, mimetype: 'video/mp4', caption: `ðŸŽ¬ ${r.title || 'Download'}` }, { quoted: m }); return true;
+        await sock.sendMessage(jid, { video: { url: u }, mimetype: 'video/mp4', caption: `🎬 ${r.title || 'Download'}` }, { quoted: m }); return true;
       } catch (e) {
         console.error(cmd, e?.message || e);
         await safeReply(sock, jid, jereErr(e), m); return true;

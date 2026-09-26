@@ -1,4 +1,4 @@
-﻿// handlers/jere-game.js â€” JERE-GAME/FUN (jawab tetap di games.js spt asli)
+// handlers/jere-game.js — JERE-GAME/FUN (jawab tetap di games.js spt asli)
 // Diekstrak verbatim dari handlers/messages.js; tanpa perubahan perilaku.
 // Dipanggil router handlers/messages.js sesuai urutan asli. Return true = tertangani.
 const S = require('../../handlers/state');
@@ -18,12 +18,12 @@ async function handleJereGame(ctx) {
   const { sock, m, jid, isGroup, sender, body, cmd, args, prefix, start, unwrapped } = ctx;
     // ===== JERE-GAME/FUN (sesi Jere terpisah; .jawab digabung di atas) =====
     if (cmd === 'jkuislist') {
-      await safeReply(sock, jid, `ðŸŽ® *Kuis Jere (23):*\n${jereFun.listGames().join(', ')}\n\nContoh: ${prefix}jkuis tebakgambar`, m); return true;
+      await safeReply(sock, jid, `🎮 *Kuis Jere (23):*\n${jereFun.listGames().join(', ')}\n\nContoh: ${prefix}jkuis tebakgambar`, m); return true;
     }
     if (cmd === 'jkuis' || cmd === 'jquiz') {
       const g = String(args || '').trim().split(/\s+/)[0] || '';
       if (!g) { await safeReply(sock, jid, `Contoh: ${prefix}jkuis tebakgambar\nDaftar: ${prefix}jkuislist`, m); return true; }
-      await interim(sock, jid, m, 'â“ Lagi ambil soal (Jere)...');
+      await interim(sock, jid, m, '❓ Lagi ambil soal (Jere)...');
       try {
         const soal = await jereFun.fetchSoal(g);
         mapSetCapped(jereQuizSessions, scopeKey(jid, sender), soal);
@@ -31,9 +31,9 @@ async function handleJereGame(ctx) {
           const cur = jereQuizSessions.get(scopeKey(jid, sender));
           if (cur && cur === soal) jereQuizSessions.delete(scopeKey(jid, sender));
         }, jereFun.GAME_TIMEOUT_MS || 60000).unref?.();
-        let txt = `â“ *Kuis Jere [${soal.game}]*\n${soal.soal}`;
-        if (soal.clue) txt += `\nðŸ’¡ Clue: ${soal.clue}`;
-        txt += `\n\nJawab pakai ${prefix}jawab <teks> (atau ${prefix}jawab nyerah) â€¢ 60 dtk`;
+        let txt = `❓ *Kuis Jere [${soal.game}]*\n${soal.soal}`;
+        if (soal.clue) txt += `\n💡 Clue: ${soal.clue}`;
+        txt += `\n\nJawab pakai ${prefix}jawab <teks> (atau ${prefix}jawab nyerah) • 60 dtk`;
         if (soal.mediaUrl && !soal.isAudio) {
           try {
             await sock.sendMessage(jid, { image: { url: soal.mediaUrl }, caption: txt }, { quoted: m });
@@ -52,7 +52,7 @@ async function handleJereGame(ctx) {
       }
     }
     if (cmd === 'primbonlist') {
-      await safeReply(sock, jid, `ðŸ”® *Primbon Jere (11):*\n${jereFun.listPrimbon().join(', ')}\n\nContoh: ${prefix}primbon artinama|Budi`, m); return true;
+      await safeReply(sock, jid, `🔮 *Primbon Jere (11):*\n${jereFun.listPrimbon().join(', ')}\n\nContoh: ${prefix}primbon artinama|Budi`, m); return true;
     }
     if (cmd === 'primbon') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}primbon artinama|Budi\nDaftar: ${prefix}primbonlist`, m); return true; }
@@ -80,10 +80,10 @@ async function handleJereGame(ctx) {
         } else {
           params = { text: rest };
         }
-        await interim(sock, jid, m, 'ðŸ”® Lagi baca primbon (Jere)...');
+        await interim(sock, jid, m, '🔮 Lagi baca primbon (Jere)...');
         const r = await jereFun.primbon(kind, params);
         const out = typeof r === 'string' ? r : JSON.stringify(r, null, 2);
-        await sendLongText(sock, jid, `ðŸ”® *Primbon ${kind}*\n\n${String(out).slice(0, 3500)}`, m); return true;
+        await sendLongText(sock, jid, `🔮 *Primbon ${kind}*\n\n${String(out).slice(0, 3500)}`, m); return true;
       } catch (e) {
         console.error(cmd, e?.message || e);
         await safeReply(sock, jid, jereErr(e), m); return true;
@@ -92,7 +92,7 @@ async function handleJereGame(ctx) {
     if (cmd === 'animequotes' || cmd === 'janimeq') {
       try {
         const r = await jereFun.animequotes();
-        let txt = `ðŸ’¬ *Anime Quotes*\n\n"${r.quote || '-'}"\n\nðŸ‘¤ ${r.character || '-'} â€¢ ðŸŽ¬ ${r.anime || '-'}`;
+        let txt = `💬 *Anime Quotes*\n\n"${r.quote || '-'}"\n\n👤 ${r.character || '-'} • 🎬 ${r.anime || '-'}`;
         if (r.image) {
           try {
             await sock.sendMessage(jid, { image: { url: r.image }, caption: txt }, { quoted: m });
@@ -108,18 +108,18 @@ async function handleJereGame(ctx) {
     if (cmd === 'fakta' || cmd === 'jfact') {
       try {
         const r = await jereFun.fakta();
-        await safeReply(sock, jid, `ðŸ§  *Fakta Unik:*\n${r.fakta}`, m); return true;
+        await safeReply(sock, jid, `🧠 *Fakta Unik:*\n${r.fakta}`, m); return true;
       } catch (e) {
         console.error(cmd, e?.message || e);
         await safeReply(sock, jid, jereErr(e), m); return true;
       }
     }
     if (cmd === 'alkitab') {
-      await interim(sock, jid, m, 'ðŸ“– Lagi buka Alkitab (Jere)...');
+      await interim(sock, jid, m, '📖 Lagi buka Alkitab (Jere)...');
       try {
         const r = await jereFun.alkitab(args || '');
         const out = typeof r === 'string' ? r : JSON.stringify(r, null, 2);
-        await sendLongText(sock, jid, `ðŸ“– *Alkitab ${args || 'â€”'}*\n\n${String(out).slice(0, 3500)}`, m); return true;
+        await sendLongText(sock, jid, `📖 *Alkitab ${args || '—'}*\n\n${String(out).slice(0, 3500)}`, m); return true;
       } catch (e) {
         console.error(cmd, e?.message || e);
         await safeReply(sock, jid, jereErr(e), m); return true;
@@ -134,11 +134,11 @@ async function handleJereGame(ctx) {
           try { const v = systems.getBalance(sender); if (typeof v === 'number') saldo = v; else if (v && typeof v.balance === 'number') saldo = v.balance; } catch {}
         }
         const calc = jereFun.tukarKoin(saldo, args || '');
-        if (calc.needInput) { await safeReply(sock, jid, `Contoh: ${prefix}tukar 5 / ${prefix}tukar all\nKurs: ${calc.rate} koin = 1 limit â€¢ Koin kamu: ${calc.coin}`, m); return true; }
-        await safeReply(sock, jid, `ðŸ’± *Tukar Koin*\n${calc.count} limit â†” ${calc.cost} koin (kurs ${calc.rate}/limit)\nSisa koin: ${calc.sisa}\n\nCatatan: penambahan limit dilakukan manual oleh sistem economy yang aktif.`, m); return true;
+        if (calc.needInput) { await safeReply(sock, jid, `Contoh: ${prefix}tukar 5 / ${prefix}tukar all\nKurs: ${calc.rate} koin = 1 limit • Koin kamu: ${calc.coin}`, m); return true; }
+        await safeReply(sock, jid, `💱 *Tukar Koin*\n${calc.count} limit ↔ ${calc.cost} koin (kurs ${calc.rate}/limit)\nSisa koin: ${calc.sisa}\n\nCatatan: penambahan limit dilakukan manual oleh sistem economy yang aktif.`, m); return true;
       } catch (e) {
         console.error(cmd, e?.message || e);
-        await safeReply(sock, jid, `âŒ ${String(e?.message || 'Gagal tukar koin.').slice(0, 300)}`, m); return true;
+        await safeReply(sock, jid, `❌ ${String(e?.message || 'Gagal tukar koin.').slice(0, 300)}`, m); return true;
       }
     }
 

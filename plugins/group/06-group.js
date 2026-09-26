@@ -1,4 +1,4 @@
-﻿// handlers/group.js â€” GROUP: admin tools + sistem (welcome/antilink/badword/afk)
+// handlers/group.js — GROUP: admin tools + sistem (welcome/antilink/badword/afk)
 // Diekstrak verbatim dari handlers/messages.js; tanpa perubahan perilaku.
 // Dipanggil router handlers/messages.js sesuai urutan asli. Return true = tertangani.
 const S = require('../../handlers/state');
@@ -20,7 +20,7 @@ async function handleGroup(ctx) {
         await groupLane.tagall(sock, jid, m, args);
       } catch (e) {
         console.error('tagall', e?.message || e);
-        await safeReply(sock, jid, 'âŒ Gagal tagall. Coba lagi.', m); return true;
+        await safeReply(sock, jid, '❌ Gagal tagall. Coba lagi.', m); return true;
       }
       return true;
     }
@@ -34,7 +34,7 @@ async function handleGroup(ctx) {
         await groupLane.hidetag(sock, jid, args, m);
       } catch (e) {
         console.error('hidetag', e?.message || e);
-        await safeReply(sock, jid, 'âŒ Gagal hidetag. Coba lagi.', m); return true;
+        await safeReply(sock, jid, '❌ Gagal hidetag. Coba lagi.', m); return true;
       }
       return true;
     }
@@ -47,10 +47,10 @@ async function handleGroup(ctx) {
       if (!targets.length) { await safeReply(sock, jid, `Contoh: ${prefix}kick @user (atau reply pesannya)`, m); return true; }
       try {
         await groupLane.kick(sock, jid, targets);
-        await safeReply(sock, jid, `âœ… ${targets.length} anggota dikeluarkan.`, m); return true;
+        await safeReply(sock, jid, `✅ ${targets.length} anggota dikeluarkan.`, m); return true;
       } catch (e) {
         console.error('kick', e?.message || e);
-        await safeReply(sock, jid, 'âŒ Gagal kick. Pastikan target valid & bot admin.', m); return true;
+        await safeReply(sock, jid, '❌ Gagal kick. Pastikan target valid & bot admin.', m); return true;
       }
     }
     if (cmd === 'add') {
@@ -62,10 +62,10 @@ async function handleGroup(ctx) {
       if (!nums.length) { await safeReply(sock, jid, `Contoh: ${prefix}add 6281234567890`, m); return true; }
       try {
         await groupLane.addMembers(sock, jid, nums);
-        await safeReply(sock, jid, `âœ… Undangan dikirim ke ${nums.length} nomor.`, m); return true;
+        await safeReply(sock, jid, `✅ Undangan dikirim ke ${nums.length} nomor.`, m); return true;
       } catch (e) {
         console.error('add', e?.message || e);
-        await safeReply(sock, jid, 'âŒ Gagal add. Nomor harus terdaftar WA & mengizinkan ditambah.', m); return true;
+        await safeReply(sock, jid, '❌ Gagal add. Nomor harus terdaftar WA & mengizinkan ditambah.', m); return true;
       }
     }
     if (cmd === 'promote' || cmd === 'demote') {
@@ -78,10 +78,10 @@ async function handleGroup(ctx) {
       try {
         if (cmd === 'promote') await groupLane.promote(sock, jid, targets);
         else await groupLane.demote(sock, jid, targets);
-        await safeReply(sock, jid, `âœ… ${cmd} berhasil untuk ${targets.length} anggota.`, m); return true;
+        await safeReply(sock, jid, `✅ ${cmd} berhasil untuk ${targets.length} anggota.`, m); return true;
       } catch (e) {
         console.error(cmd, e?.message || e);
-        await safeReply(sock, jid, `âŒ Gagal ${cmd}. Coba lagi.`, m); return true;
+        await safeReply(sock, jid, `❌ Gagal ${cmd}. Coba lagi.`, m); return true;
       }
     }
     if (cmd === 'linkgc' || cmd === 'linkgrup' || cmd === 'linkgroup') {
@@ -89,10 +89,10 @@ async function handleGroup(ctx) {
       if (ga) { await safeReply(sock, jid, ga, m); return true; }
       try {
         const link = await groupLane.getInviteLink(sock, jid);
-        await safeReply(sock, jid, `ðŸ”— *Link grup:*\n${link}`, m); return true;
+        await safeReply(sock, jid, `🔗 *Link grup:*\n${link}`, m); return true;
       } catch (e) {
         console.error('linkgc', e?.message || e);
-        await safeReply(sock, jid, 'âŒ Gagal ambil link grup. Pastikan bot admin.', m); return true;
+        await safeReply(sock, jid, '❌ Gagal ambil link grup. Pastikan bot admin.', m); return true;
       }
     }
     if (cmd === 'group' || cmd === 'grup') {
@@ -104,16 +104,16 @@ async function handleGroup(ctx) {
       try {
         if (sub === 'buka' || sub === 'open') {
           await groupLane.openGroup(sock, jid);
-          await safeReply(sock, jid, 'âœ… Grup dibuka â€” semua anggota bisa chat.', m); return true;
+          await safeReply(sock, jid, '✅ Grup dibuka — semua anggota bisa chat.', m); return true;
         }
         if (sub === 'tutup' || sub === 'close') {
           await groupLane.closeGroup(sock, jid);
-          await safeReply(sock, jid, 'ðŸ”’ Grup ditutup â€” hanya admin yang bisa chat.', m); return true;
+          await safeReply(sock, jid, '🔒 Grup ditutup — hanya admin yang bisa chat.', m); return true;
         }
         await safeReply(sock, jid, `Contoh: ${prefix}group buka / ${prefix}group tutup`, m); return true;
       } catch (e) {
         console.error('group', e?.message || e);
-        await safeReply(sock, jid, 'âŒ Gagal ubah setelan grup.', m); return true;
+        await safeReply(sock, jid, '❌ Gagal ubah setelan grup.', m); return true;
       }
     }
     if (cmd === 'setname' || cmd === 'setdesc') {
@@ -125,22 +125,22 @@ async function handleGroup(ctx) {
       try {
         if (cmd === 'setname') await groupLane.setGroupName(sock, jid, args);
         else await groupLane.setGroupDesc(sock, jid, args);
-        await safeReply(sock, jid, `âœ… ${cmd} berhasil.`, m); return true;
+        await safeReply(sock, jid, `✅ ${cmd} berhasil.`, m); return true;
       } catch (e) {
         console.error(cmd, e?.message || e);
-        await safeReply(sock, jid, `âŒ Gagal ${cmd}.`, m); return true;
+        await safeReply(sock, jid, `❌ Gagal ${cmd}.`, m); return true;
       }
     }
     if (cmd === 'grouplist' || cmd === 'listgc' || cmd === 'listgrup') {
       try {
         const all = await sock.groupFetchAllParticipating();
         const list = Object.values(all || {});
-        if (!list.length) { await safeReply(sock, jid, 'ðŸ“‹ Bot belum ikut grup mana pun.', m); return true; }
+        if (!list.length) { await safeReply(sock, jid, '📋 Bot belum ikut grup mana pun.', m); return true; }
         const out = list.map((gr, i) => `${i + 1}. *${gr.subject || '-'}* (${(gr.participants || []).length} anggota)`).join('\n');
-        await safeReply(sock, jid, `ðŸ“‹ *Grup bot (${list.length}):*\n${out}`, m); return true;
+        await safeReply(sock, jid, `📋 *Grup bot (${list.length}):*\n${out}`, m); return true;
       } catch (e) {
         console.error('grouplist', e?.message || e);
-        await safeReply(sock, jid, 'âŒ Gagal ambil daftar grup.', m); return true;
+        await safeReply(sock, jid, '❌ Gagal ambil daftar grup.', m); return true;
       }
     }
     if (cmd === 'listadmin' || cmd === 'adminlist') {
@@ -151,11 +151,11 @@ async function handleGroup(ctx) {
         const admins = parts.filter(groupLane.isParticipantAdmin);
         if (!admins.length) { await safeReply(sock, jid, 'Belum ada admin terdeteksi.', m); return true; }
         const ids = admins.map((p) => String(p.id));
-        const text = 'ðŸ‘‘ *Admin grup:*\n' + ids.map((id, i) => `${i + 1}. @${id.split('@')[0]}`).join('\n');
+        const text = '👑 *Admin grup:*\n' + ids.map((id, i) => `${i + 1}. @${id.split('@')[0]}`).join('\n');
         await sock.sendMessage(jid, { text, mentions: ids }, { quoted: m });
       } catch (e) {
         console.error('listadmin', e?.message || e);
-        await safeReply(sock, jid, 'âŒ Gagal ambil daftar admin.', m); return true;
+        await safeReply(sock, jid, '❌ Gagal ambil daftar admin.', m); return true;
       }
       return true;
     }
@@ -167,7 +167,7 @@ async function handleGroup(ctx) {
         await safeReply(sock, jid, groupLane.groupInfoText(meta), m); return true;
       } catch (e) {
         console.error('infogc', e?.message || e);
-        await safeReply(sock, jid, 'âŒ Gagal ambil info grup.', m); return true;
+        await safeReply(sock, jid, '❌ Gagal ambil info grup.', m); return true;
       }
     }
 
@@ -178,11 +178,11 @@ async function handleGroup(ctx) {
       const sub = String(args || '').trim().toLowerCase();
       if (sub === 'on') {
         systems.welcomeOn(jid);
-        await safeReply(sock, jid, 'âœ… Welcome ON â€” anggota baru otomatis disambut.', m); return true;
+        await safeReply(sock, jid, '✅ Welcome ON — anggota baru otomatis disambut.', m); return true;
       }
       if (sub === 'off') {
         systems.welcomeOff(jid);
-        await safeReply(sock, jid, 'âœ… Welcome OFF.', m); return true;
+        await safeReply(sock, jid, '✅ Welcome OFF.', m); return true;
       }
       await safeReply(sock, jid, `Contoh: ${prefix}welcome on / off (saat ini: ${systems.isWelcomeOn(jid) ? 'ON' : 'OFF'})`, m); return true;
     }
@@ -192,11 +192,11 @@ async function handleGroup(ctx) {
       const sub = String(args || '').trim().toLowerCase();
       if (sub === 'on') {
         systems.antilinkOn(jid);
-        await safeReply(sock, jid, 'âœ… Antilink ON â€” link invite otomatis dihapus.', m); return true;
+        await safeReply(sock, jid, '✅ Antilink ON — link invite otomatis dihapus.', m); return true;
       }
       if (sub === 'off') {
         systems.antilinkOff(jid);
-        await safeReply(sock, jid, 'âœ… Antilink OFF.', m); return true;
+        await safeReply(sock, jid, '✅ Antilink OFF.', m); return true;
       }
       await safeReply(sock, jid, `Contoh: ${prefix}antilink on / off (saat ini: ${systems.isAntilinkOn(jid) ? 'ON' : 'OFF'})`, m); return true;
     }
@@ -215,14 +215,14 @@ async function handleGroup(ctx) {
       }
       if (sub === 'list' || !sub) {
         const list = systems.listBadword();
-        await safeReply(sock, jid, list.length ? `ðŸš« *Badword (${list.length}):*\n${list.map((w, i) => `${i + 1}. ${w}`).join('\n')}` : 'ðŸš« Daftar badword masih kosong.', m); return true;
+        await safeReply(sock, jid, list.length ? `🚫 *Badword (${list.length}):*\n${list.map((w, i) => `${i + 1}. ${w}`).join('\n')}` : '🚫 Daftar badword masih kosong.', m); return true;
       }
       await safeReply(sock, jid, `Contoh: ${prefix}badword add <kata> / del <kata> / list`, m); return true;
     }
 
     if (cmd === 'afk') {
       systems.setAfk(sender, args || 'AFK');
-      await safeReply(sock, jid, `ðŸ’¤ @${String(sender).split('@')[0]} sekarang AFK${args ? `: ${args}` : ''}.`, m); return true;
+      await safeReply(sock, jid, `💤 @${String(sender).split('@')[0]} sekarang AFK${args ? `: ${args}` : ''}.`, m); return true;
     }
 
   return false;

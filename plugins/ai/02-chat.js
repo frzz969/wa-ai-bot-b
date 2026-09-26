@@ -1,4 +1,4 @@
-﻿// handlers/chat.js â€” CHAT: ai, talk/curhat, stoptalk, vn/transcribe, new/clear/memory/model
+// handlers/chat.js — CHAT: ai, talk/curhat, stoptalk, vn/transcribe, new/clear/memory/model
 // Diekstrak verbatim dari handlers/messages.js; tanpa perubahan perilaku.
 // Dipanggil router handlers/messages.js sesuai urutan asli. Return true = tertangani.
 const S = require('../../handlers/state');
@@ -37,13 +37,13 @@ async function handleChat(ctx) {
       // Kasus 1: gambar + caption .ai <pertanyaan> (vision)
       if (imgMsg) {
         const question = args || 'Jelaskan gambar ini.';
-        await interim(sock, jid, m, 'ðŸ–¼ï¸ Lagi menganalisis gambarnya...');
+        await interim(sock, jid, m, '🖼️ Lagi menganalisis gambarnya...');
         let buf;
         try {
           buf = await downloadBuffer(m, sock);
         } catch (e) {
           console.error('ai', e?.message || e);
-          await safeReply(sock, jid, 'âŒ Gagal mengunduh gambar. Coba kirim ulang gambarnya.', m); return true;
+          await safeReply(sock, jid, '❌ Gagal mengunduh gambar. Coba kirim ulang gambarnya.', m); return true;
         }
         const v = await compressForVision(buf, imgMsg.mimetype || 'image/jpeg');
         const p = await preprocessForOCR(v.buffer);
@@ -58,7 +58,7 @@ async function handleChat(ctx) {
           console.error('ai', e?.message || e);
           await safeReply(
             sock, jid,
-            'ðŸ˜¢ Maaf, AI gambar sedang sibuk/gagal. Coba lagi sebentar ya, pastikan GEMINI_API_KEY terisi.',
+            '😢 Maaf, AI gambar sedang sibuk/gagal. Coba lagi sebentar ya, pastikan GEMINI_API_KEY terisi.',
             m
           ); return true;
         }
@@ -66,13 +66,13 @@ async function handleChat(ctx) {
 
       // Kasus 2: reply gambar + ketik .ai <pertanyaan>
       if (quotedImg && args) {
-        await interim(sock, jid, m, 'ðŸ–¼ï¸ Lagi menganalisis gambarnya...');
+        await interim(sock, jid, m, '🖼️ Lagi menganalisis gambarnya...');
         let buf;
         try {
           buf = await downloadBuffer(wrapQuoted(jid, quoted), sock);
         } catch (e) {
           console.error('ai', e?.message || e);
-          await safeReply(sock, jid, 'âŒ Gagal mengunduh gambar yang di-reply.', m); return true;
+          await safeReply(sock, jid, '❌ Gagal mengunduh gambar yang di-reply.', m); return true;
         }
         try {
           const v = await compressForVision(buf, quotedImg.mimetype || 'image/jpeg');
@@ -83,7 +83,7 @@ async function handleChat(ctx) {
           await safeReply(sock, jid, answer, m); return true;
         } catch (e) {
           console.error('ai', e?.message || e);
-          await safeReply(sock, jid, 'ðŸ˜¢ Maaf, AI gambar sedang sibuk/gagal. Coba lagi sebentar ya.', m); return true;
+          await safeReply(sock, jid, '😢 Maaf, AI gambar sedang sibuk/gagal. Coba lagi sebentar ya.', m); return true;
         }
       }
 
@@ -111,7 +111,7 @@ async function handleChat(ctx) {
         console.error('ai', e?.message || e);
         await safeReply(
           sock, jid,
-          'ðŸ˜¢ Maaf, AI sedang sibuk. Cek GEMINI_API_KEY / GROQ_API_KEY di file .env lalu coba lagi.',
+          '😢 Maaf, AI sedang sibuk. Cek GEMINI_API_KEY / GROQ_API_KEY di file .env lalu coba lagi.',
           m
         ); return true;
       }
@@ -137,7 +137,7 @@ async function handleChat(ctx) {
         await safeReply(sock, jid, `${answer}\n\n_(mode curhat aktif sampai ${prefix}stoptalk)_`, m); return true;
       } catch (e) {
         console.error('talk', e?.message || e);
-        await safeReply(sock, jid, 'ðŸ˜¢ Maaf, AI sedang sibuk. Coba lagi sebentar ya.', m); return true;
+        await safeReply(sock, jid, '😢 Maaf, AI sedang sibuk. Coba lagi sebentar ya.', m); return true;
       }
     }
     if (cmd === 'stoptalk' || cmd === 'stopcurhat') {
@@ -168,32 +168,32 @@ async function handleChat(ctx) {
     if (cmd === 'new') {
       clearMemory(jid);
       talkSessions.delete(scopeKey(jid, sender));
-      await safeReply(sock, jid, 'âœ¨ Oke, kita mulai baru! Ingatanku sudah kuhapus. Mau tanya apa?', m); return true;
+      await safeReply(sock, jid, '✨ Oke, kita mulai baru! Ingatanku sudah kuhapus. Mau tanya apa?', m); return true;
     }
     if (cmd === 'clear') {
       clearMemory(jid);
       talkSessions.delete(scopeKey(jid, sender));
-      await safeReply(sock, jid, 'ðŸ§¹ Ingatan chat dihapus. Sampai jumpa lagi!', m); return true;
+      await safeReply(sock, jid, '🧹 Ingatan chat dihapus. Sampai jumpa lagi!', m); return true;
     }
     if (cmd === 'memory') {
       const hist = getMemory(jid);
       if (hist.length === 0) {
-        await safeReply(sock, jid, 'ðŸ§  Belum ada pesan tersimpan. Ngobrol dulu yuk pakai .ai!', m); return true;
+        await safeReply(sock, jid, '🧠 Belum ada pesan tersimpan. Ngobrol dulu yuk pakai .ai!', m); return true;
       }
       const last3 = hist
         .slice(-3)
-        .map((h) => `â€¢ [${h.role}] ${String(h.content).slice(0, 120)}`)
+        .map((h) => `• [${h.role}] ${String(h.content).slice(0, 120)}`)
         .join('\n');
       await safeReply(
         sock, jid,
-        `ðŸ§  *Memory:* ${hist.length} pesan tersimpan.\n\n${last3}`,
+        `🧠 *Memory:* ${hist.length} pesan tersimpan.\n\n${last3}`,
         m
       ); return true;
     }
     if (cmd === 'model') {
       await safeReply(
         sock, jid,
-        `ðŸ§© *Model aktif:*\nâ€¢ Gemini: ${config.GEMINI_MODEL}\nâ€¢ Groq: ${config.GROQ_CHAT_MODEL}`,
+        `🧩 *Model aktif:*\n• Gemini: ${config.GEMINI_MODEL}\n• Groq: ${config.GROQ_CHAT_MODEL}`,
         m
       ); return true;
     }
