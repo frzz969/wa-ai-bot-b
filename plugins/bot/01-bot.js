@@ -1,7 +1,7 @@
 ﻿// handlers/bot.js â€” BOT: menu/help, ping, about, status, run (owner), rules & anime saran
 // Diekstrak verbatim dari handlers/messages.js; tanpa perubahan perilaku.
 // Dipanggil router handlers/messages.js sesuai urutan asli. Return true = tertangani.
-const { menuText } = require('../../handlers/menu');
+const { menuText, splitMessage } = require('../../handlers/menu');
 const S = require('../../handlers/state');
 const {
   config,
@@ -22,8 +22,25 @@ const {
 async function handleBot(ctx) {
   const { sock, m, jid, isGroup, sender, body, cmd, args, prefix, start, unwrapped } = ctx;
     // ---------- MENU ----------
-    if (cmd === 'menu' || cmd === 'help') {
-      await sendMenuWithHeader(sock, jid, m, menuText(getDisplayName(m) || 'kak', prefix)); return true;
+    // .menu / .help        → ringkasan + navigasi
+    // .menu all            → semua command per kategori
+    // .menu list           → daftar kategori
+    // .menu <kategori>     → isi satu kategori
+    if (cmd === 'menu' || cmd === 'help' || cmd === 'cmd') {
+      const teks = menuText(getDisplayName(m) || 'kak', prefix, args, {
+        isOwner: isOwner(m.key.participant || sender, jid),
+      });
+      const bagian = splitMessage(teks, 3400);
+      if (bagian.length === 1) {
+        await sendMenuWithHeader(sock, jid, m, bagian[0]);
+      } else {
+        // Menu panjang: kirim sebagai teks bertahap (header gambar hanya untuk ringkasan).
+        for (let i = 0; i < bagian.length; i++) {
+          const suffix = bagian.length > 1 ? `\n\n_(bagian ${i + 1}/${bagian.length})_` : '';
+          await safeReply(sock, jid, bagian[i] + suffix, m);
+        }
+      }
+      return true;
     }
 
     if (cmd === 'ping') {

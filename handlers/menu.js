@@ -1,315 +1,470 @@
-// handlers/menu.js — teks menu (dipindah verbatim dari handlers/messages.js, tanpa perubahan isi).
-function menuText(pushName, prefix) {
-  // Kompatibel pemanggilan lama menuText(prefix) → anggap prefix saja, nama fallback 'kak'.
-  if (prefix === undefined) {
-    prefix = pushName;
-    pushName = 'kak';
-  }
-  pushName = String(pushName || '').trim() || 'kak';
-  prefix = String(prefix == null ? '.' : prefix);
-  let tanggal = '';
+// handlers/menu.js — menu bot (estetika ala Jere: ringkas + navigasi per kategori).
+//
+// MODE:
+//   .menu            → profil + statistik + navigasi (ringkas, enak dibaca)
+//   .menu all        → semua command, dikelompokkan per kategori
+//   .menu list       → daftar kategori saja
+//   .menu <kategori> → command satu kategori (cocok sebagian, mis. "dl" atau "jere")
+//
+// BADGE:
+//   🌟  butuh JERE_API_KEY valid (fitur Jere — belum aktif selama key ditolak)
+//   💬  perlu reply pesan (gambar/stiker/media)
+
+// cmd: [nama, keterangan]; reply: true → butuh reply; jere: true → butuh key Jere.
+const CATEGORIES = [
+  {
+    tag: 'bot', title: '🤖 BOT', items: [
+      ['menu', 'tampilkan menu ini'],
+      ['about', 'info tentang bot'],
+      ['status', 'cek status bot'],
+      ['ping', 'cek respon bot'],
+      ['rules', 'peraturan bot'],
+    ],
+  },
+  {
+    tag: 'chat', title: '💬 CHAT', items: [
+      ['ai', 'tanya AI (ingat 10 pesan)'],
+      ['talk', 'mode curhat gaya lembut'],
+      ['stoptalk', 'keluar mode curhat'],
+      ['new', 'mulai chat baru'],
+      ['clear', 'hapus ingatan'],
+      ['memory', 'lihat ingatan'],
+      ['model', 'lihat model aktif'],
+    ],
+  },
+  {
+    tag: 'ai', title: '🧠 AI TOOLS', items: [
+      ['ask', 'tanya apa saja'],
+      ['explain', 'jelaskan sederhana'],
+      ['summarize', 'ringkas teks'],
+      ['rewrite', 'tulis ulang gaya beda'],
+      ['translate', 'terjemahkan ID ⇄ EN'],
+      ['ideas', 'buat 7 ide'],
+      ['qr', 'buat QR dari teks'],
+    ],
+  },
+  {
+    tag: 'code', title: '💻 CODING', items: [
+      ['code', 'buatkan kode'],
+      ['debug', 'analisis error'],
+      ['fix', 'perbaiki kode'],
+      ['run', 'eksekusi JS (owner)', { owner: true }],
+    ],
+  },
+  {
+    tag: 'web', title: '🌐 WEB & INFO', items: [
+      ['search', 'cari informasi di web'],
+      ['news', 'berita terbaru'],
+      ['weather', 'cek cuaca'],
+      ['time', 'cek waktu lokal'],
+      ['jadwalsholat', 'jadwal sholat'],
+      ['quran', 'baca surat'],
+      ['gempa', 'info gempa BMKG'],
+      ['lirik', 'cari lirik lagu'],
+      ['shortlink', 'perpendek link'],
+      ['kbbi', 'arti kata KBBI'],
+      ['animesaran', 'rekomendasi anime'],
+    ],
+  },
+  {
+    tag: 'downloader', title: '⬇️ DOWNLOADER', items: [
+      ['play', 'cari + download mp3'],
+      ['ytmp3', 'YouTube jadi mp3'],
+      ['ytmp4', 'YouTube jadi mp4'],
+      ['tiktok', 'download TikTok'],
+      ['fbdl', 'download video FB'],
+      ['igdl', 'download video IG'],
+    ],
+  },
+  {
+    tag: 'apipublik', title: '🆓 API PUBLIK', items: [
+      ['aio', 'download multi-platform'],
+      ['spotify', 'audio Spotify'],
+      ['gdrive', 'download Google Drive'],
+      ['deepsearch', 'riset singkat via AI'],
+    ],
+  },
+  {
+    tag: 'sticker', title: '🎭 STICKER & MEDIA', items: [
+      ['stiker', 'gambar jadi stiker', { reply: true }],
+      ['stikerwm', 'stiker + watermark'],
+      ['triggered', 'efek triggered', { reply: true }],
+      ['toimg', 'stiker jadi gambar', { reply: true }],
+      ['stiker', 'teks jadi stiker'],
+      ['attp', 'teks jadi stiker'],
+      ['ttp', 'teks jadi stiker'],
+      ['emoji', 'emoji jadi gambar'],
+      ['iqc', 'quote iPhone (tema online)', { jere: true }],
+      ['iqclocal', 'quote iPhone (offline)'],
+    ],
+  },
+  {
+    tag: 'vision', title: '👁️ VISION & VOICE', items: [
+      ['ai', 'tanya AI soal gambar', { reply: true }],
+      ['ocr', 'baca tulisan di gambar', { reply: true }],
+      ['describe', 'deskripsikan gambar', { reply: true }],
+      ['analyze', 'analisis gambar mendalam', { reply: true }],
+      ['vn', 'transkrip voice note', { reply: true }],
+      ['transcribe', 'transkrip voice note', { reply: true }],
+      ['tts', 'teks jadi suara'],
+    ],
+  },
+  {
+    tag: 'creative', title: '🎨 CREATIVE', items: [
+      ['img', 'buat gambar dari prompt'],
+      ['image', 'buat gambar dari prompt'],
+      ['brat', 'stiker teks ala brat'],
+      ['caption', 'caption medsos'],
+      ['story', 'cerita pendek'],
+      ['prompt', 'prompt gambar detail'],
+      ['nulis', 'tulis tangan di buku'],
+    ],
+  },
+  {
+    tag: 'tools', title: '🛠️ TOOLS', items: [
+      ['morse', 'teks jadi sandi morse'],
+      ['dmorse', 'sandi morse jadi teks'],
+      ['calc', 'hitung cepat'],
+      ['tourl', 'upload media jadi link', { reply: true }],
+      ['toimage', 'gambar jadi 512px', { reply: true }],
+      ['toaudio', 'audio/video jadi VN', { reply: true }],
+      ['tovn', 'audio/video jadi VN', { reply: true }],
+      ['removebg', 'hapus background', { reply: true }],
+      ['hd', 'HD-kan gambar', { reply: true }],
+      ['qrdetect', 'baca isi QR', { reply: true }],
+      ['blurface', 'blur wajah', { reply: true }],
+    ],
+  },
+  {
+    tag: 'game', title: '🎮 GAME & FUN', items: [
+      ['ttt', 'TicTacToe lawan bot'],
+      ['kuis', 'soal acak'],
+      ['jawab', 'jawab soal kuis'],
+      ['truth', 'truth or dare'],
+      ['dare', 'truth or dare'],
+      ['tarot', 'kartu tarot harianmu'],
+      ['zodiak', 'karakter zodiak'],
+      ['ship', 'cek kecocokan'],
+      ['pantun', 'pantun random'],
+      ['weton', 'hitung weton Jawa'],
+      ['ramal', 'ramalan hari ini'],
+      ['keberuntungan', 'persen hoki'],
+      ['mimpi', 'tafsir mimpi'],
+      ['karakter', 'baca karakter'],
+      ['pilih', 'pilih satu dari beberapa'],
+      ['coinflip', 'lempar koin'],
+      ['dadu', 'lempar dadu'],
+      ['8ball', 'Magic 8-Ball'],
+      ['puji', 'pujian random'],
+      ['quotes', 'quote motivasi'],
+    ],
+  },
+  {
+    tag: 'rpg', title: '🎮 RPG', items: [
+      ['dash', 'main SPEEDY DASH'],
+      ['fish', 'memancing'],
+      ['mine', 'menambang'],
+      ['quest', 'misi harian'],
+      ['profile', 'profil RPG kamu'],
+      ['leaderboard', 'peringkat level'],
+      ['heal', 'pulihkan HP'],
+    ],
+  },
+  {
+    tag: 'group', title: '👥 GROUP', items: [
+      ['tagall', 'sebut semua anggota'],
+      ['hidetag', 'sebut tanpa daftar'],
+      ['kick', 'keluarkan anggota'],
+      ['add', 'tambah anggota'],
+      ['promote', 'jadikan admin'],
+      ['demote', 'turunkan admin'],
+      ['linkgc', 'link invite grup'],
+      ['group', 'buka/tutup grup'],
+      ['setname', 'ganti nama grup'],
+      ['setdesc', 'ganti deskripsi grup'],
+      ['grouplist', 'daftar grup bot'],
+      ['listadmin', 'daftar admin grup'],
+      ['infogc', 'info grup'],
+      ['welcome', 'sambutan anggota'],
+      ['antilink', 'hapus link otomatis'],
+      ['antiflood', 'anti spam'],
+      ['badword', 'kelola kata terlarang'],
+      ['warn', 'peringatan member'],
+      ['unwarn', 'hapus peringatan'],
+      ['cekwarn', 'cek peringatan'],
+      ['groupset', 'pengaturan grup'],
+      ['afk', 'mode AFK'],
+    ],
+  },
+  {
+    tag: 'economy', title: '💰 ECONOMY', items: [
+      ['daily', 'klaim harian'],
+      ['work', 'kerja dapat saldo'],
+      ['bank', 'info bank'],
+      ['balance', 'cek saldo'],
+      ['level', 'cek XP & level'],
+      ['limit', 'sisa limit harian'],
+      ['dompet', 'cek saldo dompet'],
+      ['transfer', 'kirim saldo'],
+      ['mining', 'nambang saldo'],
+    ],
+  },
+  {
+    tag: 'jere-dl', title: '⬇️ JERE DOWNLOADER', jere: true, items: [
+      ['dlcapcut', 'download CapCut'],
+      ['dlmediafire', 'download MediaFire'],
+      ['dlterabox', 'download TeraBox'],
+      ['dlsfile', 'download SFile'],
+      ['dldouyin', 'download Douyin'],
+      ['dlsnack', 'download SnackVideo'],
+      ['dltwitter', 'download X/Twitter'],
+      ['dlsound', 'download SoundCloud'],
+      ['dlapple', 'download Apple Music'],
+      ['dlpin', 'download Pinterest'],
+      ['dlthreads', 'download Threads'],
+      ['dltele', 'stiker Telegram'],
+      ['dlaio', 'multi-platform'],
+      ['dltt', 'TikTok (fallback)'],
+      ['dlytmp3', 'YouTube mp3 (fallback)'],
+      ['dlytmp4', 'YouTube mp4 (fallback)'],
+      ['dlig', 'Instagram (fallback)'],
+      ['dlfb', 'Facebook (fallback)'],
+      ['dlspot', 'Spotify (fallback)'],
+    ],
+  },
+  {
+    tag: 'jere-ai', title: '✨ JERE AI', jere: true, items: [
+      ['jtxt2img', 'teks jadi gambar'],
+      ['jtxt2vid', 'teks jadi video'],
+      ['jsora', 'video ala Sora'],
+      ['jsuno', 'lagu AI'],
+      ['jchat', 'chat AI alternatif'],
+      ['jimg2vid', 'gambar jadi video', { reply: true }],
+      ['jupscale', 'HD-kan gambar', { reply: true }],
+      ['jtoanime', 'gambar jadi anime', { reply: true }],
+      ['jclone', 'voice clone', { reply: true }],
+      ['jswap', 'faceswap', { reply: true }],
+    ],
+  },
+  {
+    tag: 'jere-game', title: '🎮 JERE GAME', jere: true, items: [
+      ['jkuis', '23 kuis Jere'],
+      ['jkuislist', 'daftar game Jere'],
+      ['primbon', '11 primbon'],
+      ['primbonlist', 'daftar primbon'],
+      ['animequotes', 'quote anime random'],
+      ['alkitab', 'baca Alkitab'],
+      ['tukar', 'tukar koin ke limit'],
+    ],
+  },
+  {
+    tag: 'jere-media', title: '🎭 JERE MEDIA', jere: true, items: [
+      ['jqc', 'quote WA'],
+      ['jdrake', 'meme drake'],
+      ['jsmeme', 'meme', { reply: true }],
+      ['jfakewa', 'fake WA'],
+      ['jfakecall', 'fake call iOS'],
+      ['jotaku', 'cari anime Otakudesu'],
+      ['jkomik', 'cari komik Komikindo'],
+      ['jmovie', 'cari film Moviebox'],
+      ['jviu', 'cari drama Viu'],
+      ['igstalk', 'stalk Instagram'],
+      ['ttstalk', 'stalk TikTok'],
+      ['ytstalk', 'stalk YouTube'],
+      ['ghstalk', 'stalk GitHub'],
+      ['robstalk', 'stalk Roblox'],
+    ],
+  },
+  {
+    tag: 'jere-util', title: '🛠️ JERE UTIL', jere: true, items: [
+      ['jyts', 'search YouTube'],
+      ['jspotify', 'search Spotify'],
+      ['jpin', 'search Pinterest'],
+      ['jwallpaper', 'wallpaper random'],
+      ['jcuaca', 'cuaca'],
+      ['jbmkg', 'cuaca BMKG'],
+      ['jlibur', 'hari libur nasional'],
+      ['jstyle', 'variasi gaya teks'],
+      ['jshort', 'perpendek link'],
+      ['jgenius', 'cari lagu Genius'],
+      ['jmlbb', 'build MLBB'],
+      ['jmlbbtier', 'tier MLBB'],
+      ['jff', 'stalk Free Fire'],
+      ['jspeed', 'info bot/server'],
+      ['jos', 'info server'],
+      ['jbackup', 'ringkasan database', { owner: true }],
+      ['jplugins', 'list plugin', { owner: true }],
+      ['jjoin', 'bot join grup', { owner: true }],
+    ],
+  },
+];
+
+const FOOTER_NOTE =
+  `> 🌟 = fitur Jere (butuh JERE_API_KEY valid di .env)\n` +
+  `> 💬 = perlu reply pesan\n` +
+  `> powered by *Sonezz* · ai · media · utility`;
+
+function nowParts() {
+  const d = new Date();
+  let time = '', date = '';
   try {
-    tanggal = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-  } catch {
-    tanggal = new Date().toDateString();
-  }
+    time = d.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' });
+  } catch { time = d.toTimeString().slice(0, 5); }
+  try {
+    date = d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'long', year: 'numeric' });
+  } catch { date = d.toDateString(); }
+  return { time, date: date.toLowerCase() };
+}
+
+function pluginCount() {
+  try { return require('../lib/plugin-loader').loadPlugins().length; } catch { return 0; }
+}
+
+function header(pushName, prefix, opts = {}) {
+  const { time, date } = nowParts();
+  const nPlugins = pluginCount();
+  const role = opts.isOwner ? '👑 owner' : 'user';
   return (
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `🤖 *SONEZZ AI ASSISTANT*\n` +
-    `AI · Media · Utility\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `Halo kak _${pushName}_ 👋, ada yang bisa dibantu?\n` +
-    `🕐 ${tanggal} · 🔑 Prefix \`${prefix}\`\n\n` +
+`╭── [ *SONEZZ AI* ] ──╮
+│ ai · media · utility
+╰─────────────────────╯
 
-    `╭─「 🤖 BOT 」\n` +
-    `│ Langsung:\n` +
-    `│ ${prefix}menu / ${prefix}help — tampilkan menu ini\n` +
-    `│ ${prefix}about — info tentang bot\n` +
-    `│ ${prefix}status — cek status bot\n` +
-    `│ ${prefix}ping — cek respon bot\n` +
-    `│ ${prefix}rules — peraturan bot\n` +
-    `╰─\n\n` +
+[ *user profile* ]
+├ name   : *${String(pushName).toLowerCase()}*
+├ prefix : \`${prefix}\`
+└ role   : *${role}*
 
-    `╭─「 💬 CHAT 」\n` +
-    `│ Langsung:\n` +
-    `│ ${prefix}ai <teks> — tanya AI (mengingat 10 pesan)\n` +
-    `│ ${prefix}talk [teks] — mode curhat gaya lembut\n` +
-    `│ ${prefix}stoptalk — keluar dari mode curhat\n` +
-    `│ ${prefix}new — mulai chat baru + sapaan\n` +
-    `│ ${prefix}clear — hapus ingatan\n` +
-    `│ ${prefix}memory — lihat ingatan\n` +
-    `│ ${prefix}model — lihat model aktif\n` +
-    `╰─\n\n` +
-
-    `╭─「 🧠 AI TOOLS 」\n` +
-    `│ Langsung:\n` +
-    `│ ${prefix}ask <tanya> — tanya apa saja\n` +
-    `│ ${prefix}explain <topik> — jelaskan sederhana\n` +
-    `│ ${prefix}summarize <teks> — ringkas teks\n` +
-    `│ ${prefix}rewrite <teks> — tulis ulang gaya beda\n` +
-    `│ ${prefix}translate <teks> — terjemahkan ID ⇄ EN\n` +
-    `│ ${prefix}ideas <topik> — buat 7 ide\n` +
-    `│ ${prefix}qr <teks> — buat QR dari teks\n` +
-    `╰─\n\n` +
-
-    `╭─「 💻 CODING 」\n` +
-    `│ Langsung:\n` +
-    `│ ${prefix}code <minta> — buatkan kode\n` +
-    `│ ${prefix}debug <kode+error> — analisis error\n` +
-    `│ ${prefix}fix <kode> — perbaiki kode\n` +
-    `│ ${prefix}run <kode> — eksekusi JS (owner only)\n` +
-    `╰─\n\n` +
-
-    `╭─「 🌐 WEB & INFO 」\n` +
-    `│ Langsung:\n` +
-    `│ ${prefix}search <q> — cari informasi di web\n` +
-    `│ ${prefix}news <topik> — berita terbaru\n` +
-    `│ ${prefix}weather <kota> — cek cuaca\n` +
-    `│ ${prefix}time <kota> — cek waktu lokal\n` +
-    `│ ${prefix}jadwalsholat <kota> — jadwal sholat\n` +
-    `│ ${prefix}quran <nomor> [jml] — baca surat\n` +
-    `│ ${prefix}gempa — info gempa BMKG\n` +
-    `│ ${prefix}lirik <judul> — cari lirik lagu\n` +
-    `│ ${prefix}shortlink <url> — perpendek link\n` +
-    `│ ${prefix}kbbi <kata> — arti kata KBBI\n` +
-    `│ ${prefix}animesaran — rekomendasi anime\n` +
-    `╰─\n\n` +
-
-    `╭─「 ⬇️ DOWNLOADER 」\n` +
-    `│ Langsung:\n` +
-    `│ ${prefix}play <judul> — cari + download mp3\n` +
-    `│ ${prefix}ytmp3 <link> — YouTube jadi mp3\n` +
-    `│ ${prefix}ytmp4 <link> — YouTube jadi mp4 (max 720p)\n` +
-    `│ ${prefix}tiktok <link> — download TikTok\n` +
-    `│ ${prefix}fbdl <link> — download video FB\n` +
-    `│ ${prefix}igdl <link> — download video IG\n` +
-    `╰─\n\n` +
-
-    `╭─「 🆓 API PUBLIK 」\n` +
-    `│ ${prefix}aio <link> — download multi-platform via API gratis\n` +
-    `│ ${prefix}spotify <link> — audio Spotify via API gratis\n` +
-    `│ ${prefix}gdrive <link> — download file Google Drive\n` +
-    `│ ${prefix}deepsearch <topik> — riset singkat via AI publik\n` +
-    `╰─\n\n` +
-
-    `╭─「 🎭 STICKER & MEDIA 」\n` +
-    `│ Reply gambar untuk:\n` +
-    `│ ${prefix}stiker — gambar jadi stiker\n` +
-    `│ ${prefix}stickerwm <pack>|<author> — watermark\n` +
-    `│ ${prefix}triggered — efek triggered\n` +
-    `│ Reply stiker untuk:\n` +
-    `│ ${prefix}toimg — stiker jadi gambar\n` +
-    `│ Langsung:\n` +
-    `│ ${prefix}stiker <teks> — teks jadi stiker\n` +
-    `│ ${prefix}attp / ${prefix}ttp <teks> — teks jadi stiker\n` +
-    `│ ${prefix}emoji <emoji> — emoji jadi gambar\n` +
-    `│ ${prefix}iqc <teks>|<tema> — quote iPhone (tema online)\n` +
-    `│ ${prefix}iqclocal <teks> — quote iPhone (offline)\n` +
-    `╰─\n\n` +
-
-    `╭─「 👁️ VISION & VOICE 」\n` +
-    `│ Reply gambar untuk:\n` +
-    `│ ${prefix}ai <tanya> — tanya AI tentang gambar\n` +
-    `│ ${prefix}ocr — baca tulisan di gambar\n` +
-    `│ ${prefix}describe — deskripsikan gambar\n` +
-    `│ ${prefix}analyze — analisis gambar mendalam\n` +
-    `│ Reply voice note untuk:\n` +
-    `│ ${prefix}vn / ${prefix}transcribe — transkrip voice note\n` +
-    `│ Langsung:\n` +
-    `│ ${prefix}tts <teks> — ubah teks menjadi suara\n` +
-    `╰─\n\n` +
-
-    `╭─「 🎨 CREATIVE 」\n` +
-    `│ Langsung:\n` +
-    `│ ${prefix}img / ${prefix}image <prompt> — buat gambar\n` +
-    `│ ${prefix}brat <teks> — stiker teks ala brat\n` +
-    `│ ${prefix}caption <topik> — caption medsos\n` +
-    `│ ${prefix}story <tema> — cerita pendek\n` +
-    `│ ${prefix}prompt <ide> — prompt gambar detail\n` +
-     `│ ${prefix}nulis <teks> — tulis tangan di buku\n` +
-     `╰─\n\n` +
-
-     `╭─「 🛠️ TOOLS 」\n` +
-     `│ Langsung:\n` +
-     `│ ${prefix}morse <teks> — teks jadi sandi morse\n` +
-     `│ ${prefix}dmorse <sandi> — sandi morse jadi teks\n` +
-     `│ ${prefix}calc <ekspresi> — hitung cepat\n` +
-     `│ Reply media untuk:\n` +
-     `│ ${prefix}tourl — upload media jadi link\n` +
-     `│ ${prefix}toimage — gambar jadi gambar 512px\n` +
-     `│ ${prefix}toaudio / ${prefix}tovn — audio/video jadi VN\n` +
-     `│ ${prefix}removebg — hapus background gambar\n` +
-     `│ ${prefix}hd — HD-kan gambar\n` +
-     `│ ${prefix}qrdetect — baca isi QR di gambar\n` +
-     `│ ${prefix}blurface — blur wajah di gambar\n` +
-     `╰─\n\n` +
-
-     `╭─「 🎮 MINI GAME 」\n` +
-     `│ Langsung:\n` +
-     `│ ${prefix}ttt — main TicTacToe lawan bot\n` +
-     `│ ${prefix}kuis [kategori] — soal acak\n` +
-     `│ ${prefix}jawab <teks> — jawab soal kuis\n` +
-     `╰─\n\n` +
-
-    `╭─「 🎉 FUN 」\n` +
-    `│ Langsung:\n` +
-    `│ ${prefix}truth / ${prefix}dare — truth or dare\n` +
-    `│ ${prefix}tarot — kartu tarot harianmu\n` +
-    `│ ${prefix}zodiak <nama> — karakter zodiak\n` +
-    `│ ${prefix}ship <nama1> | <nama2> — cek kecocokan\n` +
-    `│ ${prefix}pantun — pantun random\n` +
-    `│ ${prefix}weton <tgl-bln-thn> — hitung weton Jawa\n` +
-    `│ ${prefix}ramal — ramalan hari ini\n` +
-    `│ ${prefix}keberuntungan [nama] — persen hoki\n` +
-    `│ ${prefix}mimpi <kata> — tafsir mimpi\n` +
-    `│ ${prefix}karakter <nama> — baca karakter\n` +
-    `│ ${prefix}pilih <a> | <b> | <c> — pilihkan satu\n` +
-    `│ ${prefix}coinflip — lempar koin\n` +
-    `│ ${prefix}dadu [2-100] — lempar dadu\n` +
-    `│ ${prefix}8ball <tanya> — Magic 8-Ball\n` +
-    `│ ${prefix}puji [nama] — pujian random\n` +
-    `│ ${prefix}quotes — quote motivasi\n` +
-    `╰─\n\n` +
-
-    `╭─「 🎮 RPG 」\n` +
-    `│ Langsung:\n` +
-    `│ ${prefix}dash — main SPEEDY DASH\n` +
-    `│ ${prefix}fish — memancing\n` +
-    `│ ${prefix}mine — menambang\n` +
-    `│ ${prefix}quest — misi harian\n` +
-    `│ ${prefix}profile — profil RPG kamu\n` +
-    `│ ${prefix}leaderboard — peringkat level\n` +
-    `│ ${prefix}heal — pulihkan HP\n` +
-    `╰─\n\n` +
-
-    `╭─「 👥 GROUP 」\n` +
-    `│ Langsung:\n` +
-    `│ ${prefix}tagall [teks] — sebut semua anggota\n` +
-    `│ ${prefix}hidetag <teks> — sebut tanpa daftar\n` +
-    `│ ${prefix}kick @user / reply — keluarkan anggota\n` +
-    `│ ${prefix}add <nomor> — tambah anggota\n` +
-    `│ ${prefix}promote / ${prefix}demote @user\n` +
-    `│ ${prefix}linkgc — link invite grup\n` +
-    `│ ${prefix}group buka / tutup — buka/tutup grup\n` +
-    `│ ${prefix}setname <nama> — ganti nama grup\n` +
-    `│ ${prefix}setdesc <teks> — ganti deskripsi grup\n` +
-    `│ ${prefix}grouplist — daftar grup bot\n` +
-    `│ ${prefix}listadmin — daftar admin grup\n` +
-    `│ ${prefix}infogc — info grup\n` +
-    `│ ${prefix}welcome on / off — sambutan anggota\n` +
-    `│ ${prefix}antilink on / off — hapus link otomatis\n` +
-    `│ ${prefix}antiflood on / off — anti spam\n` +
-    `│ ${prefix}badword add / del / list <kata>\n` +
-    `│ ${prefix}warn / ${prefix}unwarn / ${prefix}cekwarn @user\n` +
-    `│ ${prefix}groupset <opsi> — pengaturan grup\n` +
-    `│ ${prefix}afk [alasan] — mode AFK\n` +
-    `╰─\n\n` +
-
-    `╭─「 💰 ECONOMY 」\n` +
-    `│ Langsung:\n` +
-    `│ ${prefix}daily — klaim harian\n` +
-    `│ ${prefix}work — kerja dapat saldo\n` +
-    `│ ${prefix}bank — info bank\n` +
-    `│ ${prefix}balance — cek saldo\n` +
-    `│ ${prefix}level — cek XP & level\n` +
-    `│ ${prefix}limit — sisa limit harian\n` +
-    `│ ${prefix}dompet — cek saldo dompet\n` +
-    `│ ${prefix}transfer @user <nominal> — kirim saldo\n` +
-    `│ ${prefix}mining — nambang saldo (cd 5 menit)\n` +
-    `╰─\n\n` +
-
-    `╭─「 ⬇️ JERE-DL 」\n` +
-    `│ Langsung (butuh JERE_API_KEY valid):\n` +
-    `│ ${prefix}dlcapcut <link> — download CapCut\n` +
-    `│ ${prefix}dlmediafire <link> — download MediaFire\n` +
-    `│ ${prefix}dlterabox <link> — download TeraBox\n` +
-    `│ ${prefix}dlsfile <link> — download SFile\n` +
-    `│ ${prefix}dldouyin <link> — download Douyin\n` +
-    `│ ${prefix}dlsnack <link> — download SnackVideo\n` +
-    `│ ${prefix}dltwitter <link> — download X/Twitter\n` +
-    `│ ${prefix}dlsound <link> — download SoundCloud\n` +
-    `│ ${prefix}dlapple <link> — download Apple Music\n` +
-    `│ ${prefix}dlpin <link> — download Pinterest\n` +
-    `│ ${prefix}dlthreads <link> — download Threads\n` +
-    `│ ${prefix}dltele <link> — stiker Telegram\n` +
-    `│ ${prefix}dlaio <link> — multi-platform (Jere)\n` +
-    `│ Fallback (saat lane utama gagal):\n` +
-    `│ ${prefix}dltt <link> — TikTok via Jere\n` +
-    `│ ${prefix}dlytmp3 / ${prefix}dlytmp4 <link> — YouTube via Jere\n` +
-    `│ ${prefix}dlig / ${prefix}dlfb <link> — IG/FB via Jere\n` +
-    `│ ${prefix}dlspot <link> — Spotify via Jere\n` +
-    `╰─\n\n` +
-
-    `╭─「 ✨ JERE-AI 」\n` +
-    `│ Langsung (butuh JERE_API_KEY valid):\n` +
-    `│ ${prefix}jtxt2img <prompt> — teks jadi gambar\n` +
-    `│ ${prefix}jtxt2vid <prompt> — teks jadi video\n` +
-    `│ ${prefix}jsora <prompt> — video ala Sora\n` +
-    `│ ${prefix}jsuno <prompt> — lagu AI (prompt|judul|style)\n` +
-    `│ ${prefix}jchat <teks> — chat AI alternatif\n` +
-    `│ Reply media untuk:\n` +
-    `│ ${prefix}jimg2vid [prompt] — gambar jadi video\n` +
-    `│ ${prefix}jupscale — HD-kan gambar (Jere)\n` +
-    `│ ${prefix}jtoanime [style] — gambar jadi anime\n` +
-    `│ ${prefix}jclone <teks> — voice clone (reply audio)\n` +
-    `│ ${prefix}jswap — faceswap (2 gambar: kirim+reply)\n` +
-    `╰─\n\n` +
-
-    `╭─「 🎮 JERE-GAME 」\n` +
-    `│ Langsung:\n` +
-    `│ ${prefix}jkuis <game> — 23 kuis Jere (lihat daftar)\n` +
-    `│ ${prefix}jkuislist — daftar game Jere\n` +
-    `│ ${prefix}jawab <teks> — jawab kuis lokal/Jere\n` +
-    `│ ${prefix}primbon <jenis>|<param> — 11 primbon\n` +
-    `│ ${prefix}primbonlist — daftar primbon\n` +
-    `│ ${prefix}animequotes — quote anime random\n` +
-    `│ ${prefix}fakta — fakta unik\n` +
-    `│ ${prefix}alkitab [kitab pasal:ayat] — baca Alkitab\n` +
-    `│ ${prefix}tukar <jumlah|all> — 50 koin = 1 limit\n` +
-    `╰─\n\n` +
-
-    `╭─「 🎭 JERE-MEDIA 」\n` +
-    `│ Langsung:\n` +
-    `│ ${prefix}jqc <teks>|<nama> — quote WA\n` +
-    `│ ${prefix}jdrake <atas>|<bawah> — meme drake\n` +
-    `│ ${prefix}jfakewa <nama>|<tentang>|<no> — fake WA\n` +
-    `│ ${prefix}jfakecall <nama>|<durasi> — fake call iOS\n` +
-    `│ ${prefix}jsmeme <atas>|<bawah> — meme (reply gambar/URL)\n` +
-    `│ ${prefix}jotaku <judul> — cari anime Otakudesu\n` +
-    `│ ${prefix}jkomik <judul> — cari komik Komikindo\n` +
-    `│ ${prefix}jmovie <judul> — cari film Moviebox\n` +
-    `│ ${prefix}jviu <judul> — cari drama Viu\n` +
-    `│ ${prefix}igstalk / ${prefix}ttstalk / ${prefix}ytstalk <user>\n` +
-    `│ ${prefix}ghstalk / ${prefix}robstalk <user> — stalk GitHub/Roblox\n` +
-    `╰─\n\n` +
-
-    `╭─「 🛠️ JERE-UTIL 」\n` +
-    `│ Langsung:\n` +
-    `│ ${prefix}jyts <q> — search YouTube (Jere)\n` +
-    `│ ${prefix}jspotify <q> — search Spotify (Jere)\n` +
-    `│ ${prefix}jpin <q> — search Pinterest (Jere)\n` +
-    `│ ${prefix}jwallpaper <q> — wallpaper random\n` +
-    `│ ${prefix}jcuaca <kota> — cuaca (Jere)\n` +
-    `│ ${prefix}jbmkg [kota] — cuaca BMKG (Jere)\n` +
-    `│ ${prefix}jlibur [tahun] — hari libur nasional\n` +
-    `│ ${prefix}jstyle <teks> — variasi gaya teks\n` +
-    `│ ${prefix}jshort <url> — perpendek link\n` +
-    `│ ${prefix}jgenius <judul> — cari lagu Genius\n` +
-    `│ ${prefix}jmlbb <hero> — build MLBB\n` +
-    `│ ${prefix}jmlbbtier — tier MLBB\n` +
-    `│ ${prefix}jff <uid> — stalk Free Fire\n` +
-    `│ ${prefix}jspeed / ${prefix}jos — info bot/server\n` +
-    `│ Owner only:\n` +
-    `│ ${prefix}jbackup — ringkasan file database\n` +
-    `│ ${prefix}jplugins [nama] — list/baca src/commands\n` +
-    `│ ${prefix}jjoin <link invite> — bot join grup\n` +
-    `╰─\n\n` +
-
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-    `*Private* → chat bebas\n` +
-    `*Group* → \`${prefix}\` / mention bot\n` +
-    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+[ *bot stats* ]
+├ time    : *${time} wib*
+├ date    : *${date}*
+├ plugins : *${nPlugins} file*
+└ status  : *active*`
   );
 }
 
-module.exports = { menuText };
+// Prefix aktif dipakai saat render baris command per kategori.
+let PREFIX_ = '.';
+
+function line(cat, name, desc, flag) {
+  const badges = [];
+  if (flag && flag.jere) badges.push('🌟');
+  if (flag && flag.reply) badges.push('💬');
+  if (flag && flag.owner) badges.push('👑');
+  const tag = badges.length ? ' ' + badges.join('') : '';
+  return `  ┣ ${PREFIX_}${name}${tag} — ${desc}`;
+}
+
+function renderCategory(cat) {
+  return (
+`╭── [ *${cat.title}* ]\n` +
+cat.items.map(([n, d, f]) => line(cat, n, d, f)).join('\n') +
+`\n╰──────────────`
+  );
+}
+
+// Cocokkan nama kategori: penuh atau sebagian (dl, jere, game, tools, ...).
+function findCategory(query) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return null;
+  return (
+    CATEGORIES.find((c) => c.tag === q) ||
+    CATEGORIES.find((c) => c.tag.includes(q)) ||
+    CATEGORIES.find((c) => c.title.toLowerCase().includes(q)) ||
+    CATEGORIES.find((c) => c.items.some(([n]) => n === q))
+  ) || null;
+}
+
+function listMode(prefix, opts) {
+  const tags = CATEGORIES.map((c) => (c.jere ? c.tag + ' 🌟' : c.tag));
+  const rows = [];
+  for (let i = 0; i < tags.length; i += 3) {
+    rows.push('  ┣ ' + tags.slice(i, i + 3).join('   ┣ '));
+  }
+  return (
+header('user', prefix, opts) +
+`\n\n╭── [ *available categories* ]\n` +
+rows.join('\n') +
+`\n╰──────────────\n\n` +
+`> ketik \`${prefix}menu <kategori>\` untuk lihat isi satu kategori\n\n` +
+FOOTER_NOTE
+  );
+}
+
+function defaultMode(pushName, prefix, opts) {
+  PREFIX_ = prefix;
+  return (
+header(pushName, prefix, opts) +
+`\n\n` +
+`*quick navigation:*\n` +
+`• \`${prefix}menu all\` ➔ semua fitur bot\n` +
+`• \`${prefix}menu list\` ➔ daftar kategori\n` +
+`• \`${prefix}menu <kategori>\` ➔ per kategori\n` +
+`• \`${prefix}ping\` ➔ cek respon bot\n\n` +
+`*Private* → chat bebas\n` +
+`*Group* → \`${prefix}\` atau mention bot\n\n` +
+FOOTER_NOTE
+  );
+}
+
+function allMode(prefix) {
+  PREFIX_ = prefix;
+  return (
+CATEGORIES.map((c) => renderCategory(c)).join('\n\n') +
+`\n\n` + FOOTER_NOTE
+  );
+}
+
+function categoryMode(query, prefix, opts) {
+  PREFIX_ = prefix;
+  const cat = findCategory(query);
+  if (!cat) {
+    return (
+defaultMode('user', prefix, opts) +
+`\n\n❌ Kategori *"${query}"* tidak ada. Coba \`${prefix}menu list\` untuk daftar kategori.`
+    );
+  }
+  return (
+`╭── [ *${cat.title}* ]\n` +
+cat.items.map(([n, d, f]) => line(cat, n, d, f)).join('\n') +
+`\n╰──────────────\n\n` +
+`> ketik \`${prefix}menu all\` untuk lihat semua kategori\n\n` +
+FOOTER_NOTE
+  );
+}
+
+// API utama: mode = '' | 'all' | 'list' | <nama kategori>
+// opts.isOwner -> menampilkan role 👑 owner di profil (dikirim dari router).
+function buildMenu(pushName, prefix, mode, opts) {
+  if (prefix === undefined) { prefix = pushName; pushName = 'kak'; }
+  pushName = String(pushName || '').trim() || 'kak';
+  prefix = String(prefix == null ? '.' : prefix);
+  const o = opts || {};
+  const q = String(mode || '').trim().toLowerCase();
+  PREFIX_ = prefix;
+  if (q === 'all') return allMode(prefix);
+  if (q === 'list' || q === 'kategori' || q === 'category') return listMode(prefix, o);
+  if (q) return categoryMode(q, prefix, o);
+  return defaultMode(pushName, prefix, o);
+}
+
+// Kompatibel pemanggilan lama: menuText(pushName, prefix)
+function menuText(pushName, prefix, mode, opts) {
+  return buildMenu(pushName, prefix, mode, opts);
+}
+
+// Potong teks panjang jadi beberapa bagian <= max (batas panjang pesan WA).
+function splitMessage(text, max = 3600) {
+  const out = [];
+  let cur = '';
+  for (const lineText of String(text).split('\n')) {
+    if (cur.length + lineText.length + 1 > max) {
+      if (cur) out.push(cur);
+      cur = '';
+    }
+    cur += (cur ? '\n' : '') + lineText;
+  }
+  if (cur) out.push(cur);
+  return out.length ? out : [''];
+}
+
+module.exports = { menuText, buildMenu, splitMessage, CATEGORIES, findCategory };
