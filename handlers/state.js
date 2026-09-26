@@ -1,7 +1,20 @@
-// handlers/messages.js — router semua perintah bot
+// handlers/state.js — state sesi + re-export seluruh helper & lane integrasi.
+// Helper murni (scopeKey, isOwner, withTimeout, chunkText, ...) ada di ./helpers
+// dan di-export ulang di bawah, jadi require("./state") dari plugin tetap utuh.
 const fs = require('fs');
 const path = require('path');
 const config = require('../config');
+const H = require('./helpers');
+// Dibuat tersedia di scope file ini juga: beberapa dipakai internal di bawah.
+const {
+  scopeKey,
+  mapSetCapped,
+  normalizeNum,
+  isOwner,
+  botJidNormalized,
+  withTimeout,
+  chunkText,
+} = H;
 const { chatAI, transcribeAudio } = require('../lib/ai');
 const { pushMessage, buildContextPrompt, clearMemory, getMemory, countChats } = require('../lib/memory');
 const { imageToSticker, textToSticker } = require('../lib/sticker');
@@ -16,7 +29,7 @@ const systems = require('../lib/systems');
 const { rulesText, animeSaranText } = require('../lib/info');
 const mediaTools = require('../lib/media-tools');
 const { handleIqc } = require('../lib/iqc');
-const { jereIqc } = require('../lib/jere-api');
+const { jereIqc } = require('../lib/jere/jere-api');
 const { isDashCommand, handleDash } = require('../lib/dash');
 const dlLane = require('../lib/downloader');
 const publicApi = require('../lib/public-api');
@@ -28,12 +41,12 @@ const toolsLocal = require('../lib/tools-local');
 const toolsRemote = require('../lib/tools-remote');
 const games = require('../lib/games');
 const quizSessions = new Map(); // scopeKey(jid,sender) -> { jawaban, kategori, soal } (maks 100)
-// ---------- LANE JERE (lib/jere-* lolos syntax, wiring di bawah, tanpa lib lain) ----------
-const jereDl = require('../lib/jere-dl');
-const jereAi = require('../lib/jere-ai');
-const jereFun = require('../lib/jere-fun');
-const jereMedia = require('../lib/jere-media');
-const jereUtil = require('../lib/jere-util');
+// ---------- LANE JERE (lib/jere/* lolos syntax, wiring di bawah, tanpa lib lain) ----------
+const jereDl = require('../lib/jere/jere-dl');
+const jereAi = require('../lib/jere/jere-ai');
+const jereFun = require('../lib/jere/jere-fun');
+const jereMedia = require('../lib/jere/jere-media');
+const jereUtil = require('../lib/jere/jere-util');
 const jereQuizSessions = new Map(); // scopeKey(jid,sender) -> soal Jere { game, soal, jawabanList, ... } (maks 100)
 // ---------- FASE 1: Router tipis + guards (src/commands + src/guards) ----------
 // Dimuat toleran-gagal: kalau modul baru bermasalah, bot tetap jalan via handler lama.
@@ -143,11 +156,6 @@ const lastBotImage = new Map(); // key jid|sender -> Buffer (hasil .img/.brat te
 const lastDoc = new Map(); // key jid|sender -> { name, text, at } (dokumen terakhir)
 const talkSessions = new Map(); // key scopeKey(jid,sender) -> true (mode sesi curhat .talk sampai .stoptalk)
 
-// Kunci per chat+pengirim agar user A tidak memakai data user B. Maks 100 entri.
-function scopeKey(jid, sender) {
-  return `${jid}|${sender}`;
-}
-
 // ---------- Mode sesi curhat (.talk s/d .stoptalk, per chat+pengirim) ----------
 function talkOn(jid, sender) {
   return talkSessions.get(scopeKey(jid, sender)) === true;
@@ -164,13 +172,6 @@ function withTalkFlag(jid, sender, text) {
     `jawab topik barunya dengan gaya normal, lalu akhiri dengan saran singkat mengetik ` +
     `${config.PREFIX}stoptalk untuk keluar dari mode curhat.]\n${text}`
   );
-}
-
-function mapSetCapped(map, k, v, max = 100) {
-  map.set(k, v);
-  while (map.size > max) {
-    map.delete(map.keys().next().value); // hapus entri tertua
-  }
 }
 
 // ---------- Dokumen: chunking / ringkas / retrieval / kirim panjang ----------
@@ -333,18 +334,6 @@ async function sendLongText(sock, jid, text, msg) {
   }
 }
 
-function normalizeNum(jid) {
-  return String(jid || '').split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
-}
-
-function isOwner(participant, remoteJid) {
-  if (!config.OWNER_NUMBER) return false;
-  // Baileys baru kirim @lid di grup: cocokkan participant DAN remoteJid
-  return [normalizeNum(participant), normalizeNum(remoteJid)].some(
-    (n) => n !== '' && n === config.OWNER_NUMBER
-  );
-}
-
 function extractText(m) {
   const msg = unwrapMessage(m.message || {}) || {};
   return (
@@ -418,11 +407,6 @@ function groupSenderOpts(m) {
   };
 }
 
-function botJidNormalized(sock) {
-  const id = sock.user?.id || '';
-  return id.split(':')[0].split('@')[0];
-}
-
 function isMentionToBot(m, sock) {
   const info =
     m.message?.extendedTextMessage?.contextInfo ||
@@ -462,32 +446,6 @@ async function sendMenuWithHeader(sock, jid, m, text) {
     console.error('menu-header', e?.message || e);
     return await safeReply(sock, jid, text, m);
   }
-}
-
-// Batasi janji dengan timeout (untuk API/download tanpa signal)
-function withTimeout(promise, ms, label) {
-  let t;
-  const to = new Promise((_, rej) => {
-    t = setTimeout(() => rej(new Error((label || 'Timeout') + ' ' + ms + 'ms')), ms);
-  });
-  return Promise.race([promise.finally(() => clearTimeout(t)), to]);
-}
-
-// Potong teks panjang jadi chunk ≤ n char per batas kata (untuk TTS)
-function chunkText(s, n = 200) {
-  const words = String(s || '').split(/\s+/).filter(Boolean);
-  const parts = [];
-  let cur = '';
-  for (const w of words) {
-    if ((cur + ' ' + w).trim().length > n) {
-      parts.push(cur.trim());
-      cur = w;
-    } else {
-      cur = (cur + ' ' + w).trim();
-    }
-  }
-  if (cur.trim()) parts.push(cur.trim());
-  return parts.length ? parts : ['...'];
 }
 
 // Wrapper prompt via chatAI + memory (hemat kode untuk perintah AI TOOLS/CODE/CREATIVE)
@@ -653,31 +611,24 @@ module.exports = {
   lastBotImage,
   lastDoc,
   talkSessions,
-  scopeKey,
   talkOn,
   sessionStyle,
   withTalkFlag,
-  mapSetCapped,
   MAX_DOCUMENT_CHUNKS,
   chunkDocument,
   summarizeDocument,
   retrieveDocChunks,
   sendLongText,
-  normalizeNum,
-  isOwner,
   extractText,
   getSender,
   getDisplayName,
   getQuotedText,
   getMentionList,
   groupSenderOpts,
-  botJidNormalized,
   isMentionToBot,
   safeReply,
   interim,
   sendMenuWithHeader,
-  withTimeout,
-  chunkText,
   aiWrap,
   OCR_SUFFIX,
   visionWrap,
@@ -685,3 +636,7 @@ module.exports = {
   jereErr,
   jereFirstUrl,
 };
+
+// Helper murni dipindah ke ./helpers. Object.assign di sini re-export semuanya
+// sehingga require("./state") dari plugin tetap mendapat nama yang sama.
+Object.assign(module.exports, H);
