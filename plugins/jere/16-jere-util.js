@@ -17,8 +17,13 @@ const {
 
 async function handleJereUtil(ctx) {
   const { sock, m, jid, isGroup, sender, body, cmd, args, prefix, start, unwrapped } = ctx;
-    // ===== JERE-UTIL (search/news/style/short/mlbb/ff/info + owner aman) =====
-    if (cmd === 'jyts' || cmd === 'yts') {
+    // ===== JERE-UTIL (yts/pin/wallpaper/libur/style/genius/mlbb/ff/info + owner aman) =====
+    // CATATAN: jspotify, jcuaca, jbmkg/bmkg, jnews, jshort, jspeed/jping DIHAPUS
+    //   karena dobel dengan lane bot sendiri:
+    //   .spotify/.weather plugins/info/05-webinfo.js, .news plugins/info/05-webinfo.js,
+    //   .shortlink plugins/info/05-webinfo.js, .ping + .status plugins/bot/01-bot.js.
+    // Alias "j*" lain juga dibuang supaya tiap fitur cuma punya satu nama.
+    if (cmd === 'yts') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}yts <kata kunci youtube>`, m); return true; }
       await interim(sock, jid, m, '🔍 Lagi search YouTube ...');
       try {
@@ -29,18 +34,7 @@ async function handleJereUtil(ctx) {
         await safeReply(sock, jid, jereErr(e), m); return true;
       }
     }
-    if (cmd === 'jspotify') {
-      if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}jspotify <kata kunci lagu>`, m); return true; }
-      await interim(sock, jid, m, '🔍 Lagi search Spotify ...');
-      try {
-        const tracks = await jereUtil.jereSpotifySearch(args, 5);
-        await sendLongText(sock, jid, jereUtil.formatSpotifyCaption(args, tracks).slice(0, 3500), m); return true;
-      } catch (e) {
-        console.error(cmd, e?.message || e);
-        await safeReply(sock, jid, jereErr(e), m); return true;
-      }
-    }
-    if (cmd === 'jpin' || cmd === 'pin') {
+    if (cmd === 'pin') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}pin <kata kunci pinterest>`, m); return true; }
       await interim(sock, jid, m, '📌 Lagi search Pinterest ...');
       try {
@@ -56,7 +50,7 @@ async function handleJereUtil(ctx) {
         await safeReply(sock, jid, jereErr(e), m); return true;
       }
     }
-    if (cmd === 'jwallpaper' || cmd === 'wallpaper') {
+    if (cmd === 'wallpaper') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}wallpaper anime`, m); return true; }
       await interim(sock, jid, m, '🖼️ Lagi cari wallpaper ...');
       try {
@@ -70,29 +64,7 @@ async function handleJereUtil(ctx) {
       }
       return true;
     }
-    if (cmd === 'jcuaca') {
-      if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}jcuaca Jakarta`, m); return true; }
-      await interim(sock, jid, m, '🌤️ Lagi cek cuaca ...');
-      try {
-        const r = await jereUtil.jereCuaca(args);
-        await sendLongText(sock, jid, jereUtil.formatCuacaCaption(r).slice(0, 3500), m); return true;
-      } catch (e) {
-        console.error(cmd, e?.message || e);
-        await safeReply(sock, jid, jereErr(e), m); return true;
-      }
-    }
-    if (cmd === 'jbmkg' || cmd === 'bmkg') {
-      await interim(sock, jid, m, '🌤️ Lagi cek BMKG ...');
-      try {
-        const list = await jereUtil.jereBmkg(args || '');
-        const arr = Array.isArray(list) ? list : [];
-        await sendLongText(sock, jid, jereUtil.formatBmkgCaption(args || '', arr, arr.length).slice(0, 3500), m); return true;
-      } catch (e) {
-        console.error(cmd, e?.message || e);
-        await safeReply(sock, jid, jereErr(e), m); return true;
-      }
-    }
-    if (cmd === 'jlibur' || cmd === 'libur') {
+    if (cmd === 'libur') {
       await interim(sock, jid, m, '🗓️ Lagi cek hari libur ...');
       try {
         const r = await jereUtil.jereHariLibur(args || String(new Date().getFullYear()));
@@ -102,7 +74,7 @@ async function handleJereUtil(ctx) {
         await safeReply(sock, jid, jereErr(e), m); return true;
       }
     }
-    if (cmd === 'jstyle' || cmd === 'style') {
+    if (cmd === 'style') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}style halo dunia`, m); return true; }
       try {
         const styles = jereUtil.styleTextLocal(args, 12);
@@ -112,31 +84,7 @@ async function handleJereUtil(ctx) {
         await safeReply(sock, jid, `❌ ${String(e?.message || 'Gagal style teks.').slice(0, 200)}`, m); return true;
       }
     }
-    if (cmd === 'jshort') {
-      if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}jshort https://example.com/panjang`, m); return true; }
-      await interim(sock, jid, m, '🔗 Lagi perpendek link...');
-      try {
-        const r = await jereUtil.jereShortUrl(jereFirstUrl(args));
-        const cap = jereUtil.formatShortUrlCaption({ asal: jereFirstUrl(args), tinyUrl: r.tinyUrl || r.tiny || r.url || '', isgd: r.isgd || r.isGd || '' }, getDisplayName(m) || 'User');
-        await safeReply(sock, jid, cap, m); return true;
-      } catch (e) {
-        console.error(cmd, e?.message || e);
-        await safeReply(sock, jid, `❌ ${String(e?.message || 'Gagal perpendek link.').slice(0, 200)}`, m); return true;
-      }
-    }
-    if (cmd === 'jnews') {
-      const src = String(args || '').trim().split(/\s+/)[0].toLowerCase() || '';
-      if (!['cnbc', 'kompas', 'liputan6'].includes(src)) { await safeReply(sock, jid, `Contoh: ${prefix}jnews cnbc\nPilihan: cnbc, kompas, liputan6`, m); return true; }
-      await interim(sock, jid, m, '📰 Lagi ambil berita ...');
-      try {
-        const list = await jereUtil.jereNews(src, 5);
-        await sendLongText(sock, jid, jereUtil.formatNewsCaption(src, list).slice(0, 3500), m); return true;
-      } catch (e) {
-        console.error(cmd, e?.message || e);
-        await safeReply(sock, jid, jereErr(e), m); return true;
-      }
-    }
-    if (cmd === 'jgenius' || cmd === 'genius') {
+    if (cmd === 'genius') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}genius <judul lagu>`, m); return true; }
       await interim(sock, jid, m, '🎵 Lagi cari di Genius ...');
       try {
@@ -148,7 +96,7 @@ async function handleJereUtil(ctx) {
         await safeReply(sock, jid, jereErr(e), m); return true;
       }
     }
-    if (cmd === 'jmlbb' || cmd === 'mlbb') {
+    if (cmd === 'mlbb') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}mlbb fanny`, m); return true; }
       await interim(sock, jid, m, '⚔️ Lagi ambil build MLBB ...');
       try {
@@ -159,7 +107,7 @@ async function handleJereUtil(ctx) {
         await safeReply(sock, jid, jereErr(e), m); return true;
       }
     }
-    if (cmd === 'jmlbbtier' || cmd === 'mlbbtier') {
+    if (cmd === 'mlbbtier') {
       await interim(sock, jid, m, '⚔️ Lagi ambil tier MLBB ...');
       try {
         const tier = await jereUtil.jereMlbbTier();
@@ -170,7 +118,7 @@ async function handleJereUtil(ctx) {
         await safeReply(sock, jid, jereErr(e), m); return true;
       }
     }
-    if (cmd === 'jff' || cmd === 'ff') {
+    if (cmd === 'ff') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}ff 417262746`, m); return true; }
       await interim(sock, jid, m, '🎮 Lagi stalk FF ...');
       try {
@@ -181,15 +129,7 @@ async function handleJereUtil(ctx) {
         await safeReply(sock, jid, jereErr(e), m); return true;
       }
     }
-    if (cmd === 'jspeed' || cmd === 'speed' || cmd === 'jping') {
-      try {
-        const cap = jereUtil.buildSpeedCaption ? jereUtil.buildSpeedCaption(Date.now() - start) : `🏓 Speed: ${Date.now() - start}ms`;
-        await safeReply(sock, jid, cap, m); return true;
-      } catch (e) {
-        await safeReply(sock, jid, `🏓 Speed: ${Date.now() - start}ms`, m); return true;
-      }
-    }
-    if (cmd === 'jos' || cmd === 'os') {
+    if (cmd === 'os') {
       try {
         const info = jereUtil.collectOsInfo ? jereUtil.collectOsInfo() : null;
         const cap = jereUtil.formatOsCaption ? jereUtil.formatOsCaption(info) : '💻 Info server tidak tersedia.';
@@ -199,7 +139,7 @@ async function handleJereUtil(ctx) {
       }
     }
     // Owner aman saja (eval/exec/restart TIDAK di-wiring; spam TIDAK ada di lib).
-    if (cmd === 'jbackup' || cmd === 'backup') {
+    if (cmd === 'backup') {
       if (!isOwner(sender, jid)) { await safeReply(sock, jid, '🔒 Khusus owner ya.', m); return true; }
       try {
         const dir = path.join(__dirname, '..', 'database');
@@ -220,7 +160,7 @@ async function handleJereUtil(ctx) {
         await safeReply(sock, jid, `❌ ${String(e?.message || 'Gagal backup.').slice(0, 200)}`, m); return true;
       }
     }
-    if (cmd === 'jplugins' || cmd === 'plugins') {
+    if (cmd === 'plugins') {
       if (!isOwner(sender, jid)) { await safeReply(sock, jid, '🔒 Khusus owner ya.', m); return true; }
       try {
         const pluginsDir = path.join(__dirname, '..', 'src', 'commands');
@@ -234,7 +174,7 @@ async function handleJereUtil(ctx) {
         await safeReply(sock, jid, `❌ ${String(e?.message || 'Gagal baca plugin.').slice(0, 200)}`, m); return true;
       }
     }
-    if (cmd === 'jjoin' || cmd === 'join') {
+    if (cmd === 'join') {
       if (!isOwner(sender, jid)) { await safeReply(sock, jid, '🔒 Khusus owner ya.', m); return true; }
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}join <link invite grup>`, m); return true; }
       try {

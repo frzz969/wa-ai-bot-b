@@ -12,12 +12,14 @@ const {
 
 async function handleJereDl(ctx) {
   const { sock, m, jid, isGroup, sender, body, cmd, args, prefix, start, unwrapped } = ctx;
-    // ===== JERE-DL (nama dl* deskriptif, tanpa tabrakan: tiktok/ytmp3/ytmp4/fbdl/igdl/spotify/aio tetap milik lane lama) =====
+    // ===== JERE-DL (nama dl* deskriptif) =====
+    // CATATAN: dlaio, dltt, dlytmp3, dlytmp4, dlig, dlfb, dlspot DIHAPUS — dobel dengan
+    // lane bot sendiri: .aio + .spotify (plugins/info/05-webinfo.js) dan
+    // .tiktok/.ytmp3/.ytmp4/.fbdl/.igdl (plugins/downloader/08-downloader.js).
     if (cmd === 'dlcapcut' || cmd === 'dlmediafire' || cmd === 'dlmf' || cmd === 'dlterabox' || cmd === 'dltb' ||
         cmd === 'dlsfile' || cmd === 'dldouyin' || cmd === 'dlsnack' || cmd === 'dltwitter' || cmd === 'dlx' ||
         cmd === 'dlsound' || cmd === 'dlapple' || cmd === 'dlpin' || cmd === 'dlthreads' || cmd === 'dltele' ||
-        cmd === 'dlaio' || cmd === 'dlfast' || cmd === 'dltt' || cmd === 'dlytmp3' || cmd === 'dlytmp4' ||
-        cmd === 'dlig' || cmd === 'dlfb' || cmd === 'dlspot') {
+        cmd === 'dlfast') {
       const url = jereFirstUrl(args);
       const usage = {
         dlcapcut: 'dlcapcut <link capcut>', dlmediafire: 'dlmediafire <link mediafire>', dlmf: 'dlmf <link mediafire>',
@@ -25,9 +27,7 @@ async function handleJereDl(ctx) {
         dldouyin: 'dldouyin <link douyin>', dlsnack: 'dlsnack <link snackvideo>', dltwitter: 'dltwitter <link x/twitter>',
         dlx: 'dlx <link x/twitter>', dlsound: 'dlsound <link soundcloud>', dlapple: 'dlapple <link apple-music>',
         dlpin: 'dlpin <link pinterest>', dlthreads: 'dlthreads <link threads>', dltele: 'dltele <link stiker-telegram>',
-        dlaio: 'dlaio <link multi-platform>', dlfast: 'dlfast <link multi-platform>', dltt: 'dltt <link tiktok>',
-        dlytmp3: 'dlytmp3 <link youtube>', dlytmp4: 'dlytmp4 <link youtube>', dlig: 'dlig <link instagram>',
-        dlfb: 'dlfb <link facebook>', dlspot: 'dlspot <link spotify>',
+        dlfast: 'dlfast <link multi-platform>',
       }[cmd] || `${cmd} <link>`;
       if (!url) { await safeReply(sock, jid, `Contoh: ${prefix}${usage}`, m); return true; }
       await interim(sock, jid, m, '⬇️ Lagi download via server...');
@@ -55,14 +55,6 @@ async function handleJereDl(ctx) {
         }
         if (cmd === 'dlapple') {
           const r = await jereDl.jereAppleMusic(url);
-          await sock.sendMessage(jid, { audio: { url: r.url }, mimetype: 'audio/mpeg', ptt: false }, { quoted: m }); return true;
-        }
-        if (cmd === 'dlytmp3') {
-          const r = await jereDl.jereYtmp3(url);
-          await sock.sendMessage(jid, { audio: { url: r.url }, mimetype: 'audio/mpeg', ptt: false }, { quoted: m }); return true;
-        }
-        if (cmd === 'dlspot') {
-          const r = await jereDl.jereSpotify(url);
           await sock.sendMessage(jid, { audio: { url: r.url }, mimetype: 'audio/mpeg', ptt: false }, { quoted: m }); return true;
         }
         // --- Video generik ---
@@ -96,30 +88,6 @@ async function handleJereDl(ctx) {
           if (!v) throw new Error('Jere API tidak mengembalikan media Threads.');
           await sock.sendMessage(jid, { video: { url: v }, mimetype: 'video/mp4', caption: `🧵 ${r.title || 'Threads'}` }, { quoted: m }); return true;
         }
-        if (cmd === 'dlytmp4') {
-          const r = await jereDl.jereYtmp4(url);
-          await sock.sendMessage(jid, { video: { url: r.url }, mimetype: 'video/mp4', caption: `🎬 ${r.title || 'YouTube'}` }, { quoted: m }); return true;
-        }
-        if (cmd === 'dlig') {
-          const r = await jereDl.jereInstagram(url);
-          const u = Array.isArray(r.url) ? r.url[0] : r.url;
-          if (!u) throw new Error('Jere API tidak mengembalikan media Instagram.');
-          await sock.sendMessage(jid, { video: { url: u }, mimetype: 'video/mp4', caption: `📸 ${r.title || 'Instagram'}` }, { quoted: m }); return true;
-        }
-        if (cmd === 'dlfb') {
-          const r = await jereDl.jereFacebook(url);
-          await sock.sendMessage(jid, { video: { url: r.url }, mimetype: 'video/mp4', caption: `📘 ${r.title || 'Facebook'}` }, { quoted: m }); return true;
-        }
-        if (cmd === 'dltt') {
-          const r = await jereDl.jereTiktok(url);
-          if (Array.isArray(r.url)) {
-            for (const img of r.url.slice(0, 5)) {
-              await sock.sendMessage(jid, { image: { url: img }, caption: `🎵 ${r.title || 'TikTok'}` }, { quoted: m });
-            }
-            return true;
-          }
-          await sock.sendMessage(jid, { video: { url: r.url }, mimetype: 'video/mp4', caption: `🎵 ${r.title || 'TikTok'}` }, { quoted: m }); return true;
-        }
         // --- Pinterest / Telegram / AIO generik ---
         if (cmd === 'dlpin') {
           const r = await jereDl.jerePinterest(url);
@@ -138,8 +106,8 @@ async function handleJereDl(ctx) {
           if (!u) throw new Error('Jere API tidak mengembalikan stiker Telegram.');
           await sock.sendMessage(jid, { image: { url: u }, caption: `🎭 Stiker Telegram: ${r.title || '-'}` }, { quoted: m }); return true;
         }
-        // dlaio / dlfast
-        const r = cmd === 'dlfast' ? await jereDl.jereFastDl(url) : await jereDl.jereAio(url);
+        // jereFastDl (dlfast)
+        const r = await jereDl.jereFastDl(url);
         const medias = Array.isArray(r.medias) ? r.medias : (Array.isArray(r.result) ? r.result : (r.url ? [{ url: r.url }] : []));
         const first = medias[0];
         const u = typeof first === 'string' ? first : (first && (first.url || first.download)) || r.url || '';

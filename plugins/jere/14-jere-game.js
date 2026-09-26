@@ -5,52 +5,14 @@ const S = require('../../handlers/state');
 const {
   systems,
   jereFun,
-  jereQuizSessions,
-  scopeKey,
-  mapSetCapped,
-  sendLongText,
   safeReply,
-  interim,
   jereErr,
 } = S;
 
 async function handleJereGame(ctx) {
   const { sock, m, jid, isGroup, sender, body, cmd, args, prefix, start, unwrapped } = ctx;
     // ===== JERE-GAME/FUN (sesi Jere terpisah; .jawab digabung di atas) =====
-    if (cmd === 'jkuislist') {
-      await safeReply(sock, jid, `🎮 *Kuis Lanjutan (23):*\n${jereFun.listGames().join(', ')}\n\nContoh: ${prefix}jkuis tebakgambar`, m); return true;
-    }
-    if (cmd === 'jkuis' || cmd === 'jquiz') {
-      const g = String(args || '').trim().split(/\s+/)[0] || '';
-      if (!g) { await safeReply(sock, jid, `Contoh: ${prefix}jkuis tebakgambar\nDaftar: ${prefix}jkuislist`, m); return true; }
-      await interim(sock, jid, m, '❓ Lagi ambil soal ...');
-      try {
-        const soal = await jereFun.fetchSoal(g);
-        mapSetCapped(jereQuizSessions, scopeKey(jid, sender), soal);
-        setTimeout(() => {
-          const cur = jereQuizSessions.get(scopeKey(jid, sender));
-          if (cur && cur === soal) jereQuizSessions.delete(scopeKey(jid, sender));
-        }, jereFun.GAME_TIMEOUT_MS || 60000).unref?.();
-        let txt = `❓ *Kuis Jere [${soal.game}]*\n${soal.soal}`;
-        if (soal.clue) txt += `\n💡 Clue: ${soal.clue}`;
-        txt += `\n\nJawab pakai ${prefix}jawab <teks> (atau ${prefix}jawab nyerah) • 60 dtk`;
-        if (soal.mediaUrl && !soal.isAudio) {
-          try {
-            await sock.sendMessage(jid, { image: { url: soal.mediaUrl }, caption: txt }, { quoted: m });
-            return true;
-          } catch { /* fallback teks+audio di bawah */ }
-        }
-        if (soal.mediaUrl && soal.isAudio) {
-          try {
-            await sock.sendMessage(jid, { audio: { url: soal.mediaUrl }, mimetype: 'audio/mpeg', ptt: false }, { quoted: m });
-          } catch {}
-        }
-        await safeReply(sock, jid, txt, m); return true;
-      } catch (e) {
-        console.error(cmd, e?.message || e);
-        await safeReply(sock, jid, jereErr(e), m); return true;
-      }
-    }
+    // CATATAN: jkuis/jquiz DIHAPUS — dobel dengan .kuis/.kuislist plugins/games/11-games.js.
     if (cmd === 'primbonlist') {
       await safeReply(sock, jid, `🔮 *Primbon (11):*\n${jereFun.listPrimbon().join(', ')}\n\nContoh: ${prefix}primbon artinama|Budi`, m); return true;
     }
@@ -89,7 +51,7 @@ async function handleJereGame(ctx) {
         await safeReply(sock, jid, jereErr(e), m); return true;
       }
     }
-    if (cmd === 'animequotes' || cmd === 'janimeq') {
+    if (cmd === 'animequotes') {
       try {
         const r = await jereFun.animequotes();
         let txt = `💬 *Anime Quotes*\n\n"${r.quote || '-'}"\n\n👤 ${r.character || '-'} • 🎬 ${r.anime || '-'}`;
@@ -105,7 +67,7 @@ async function handleJereGame(ctx) {
         await safeReply(sock, jid, jereErr(e), m); return true;
       }
     }
-    if (cmd === 'fakta' || cmd === 'jfact') {
+    if (cmd === 'fakta') {
       try {
         const r = await jereFun.fakta();
         await safeReply(sock, jid, `🧠 *Fakta Unik:*\n${r.fakta}`, m); return true;

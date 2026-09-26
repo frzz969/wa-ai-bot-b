@@ -19,7 +19,7 @@ const {
 async function handleJereMedia(ctx) {
   const { sock, m, jid, isGroup, sender, body, cmd, args, prefix, start, unwrapped } = ctx;
     // ===== JERE-MEDIA (qc/meme/fake/anime/komik/movie/stalk) =====
-    if (cmd === 'jqc' || cmd === 'qc' || cmd === 'jqcwa' || cmd === 'qcwa') {
+    if (cmd === 'qc') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}qc halo dunia|<nama>`, m); return true; }
       await interim(sock, jid, m, '💬 Lagi bikin quote ...');
       try {
@@ -34,7 +34,7 @@ async function handleJereMedia(ctx) {
       }
       return true;
     }
-    if (cmd === 'jdrake' || cmd === 'drake') {
+    if (cmd === 'drake') {
       const parts = String(args || '').split('|').map((x) => String(x || '').trim());
       if (!parts[0] || !parts[1]) { await safeReply(sock, jid, `Contoh: ${prefix}drake <atas>|<bawah>`, m); return true; }
       await interim(sock, jid, m, '🎭 Lagi bikin meme ...');
@@ -47,7 +47,7 @@ async function handleJereMedia(ctx) {
       }
       return true;
     }
-    if (cmd === 'jsmeme' || cmd === 'smeme') {
+    if (cmd === 'smeme') {
       const parts = String(args || '').split('|').map((x) => String(x || '').trim());
       if (!parts[0]) { await safeReply(sock, jid, `Contoh: ${prefix}smeme <atas>|<bawah> (reply gambar atau sertakan URL: teks|teks|url)`, m); return true; }
       await interim(sock, jid, m, '🎭 Lagi bikin meme ...');
@@ -72,7 +72,7 @@ async function handleJereMedia(ctx) {
       }
       return true;
     }
-    if (cmd === 'jfakewa' || cmd === 'fakewa') {
+    if (cmd === 'fakewa') {
       const parts = String(args || '').split('|').map((x) => String(x || '').trim());
       if (parts.length < 3) { await safeReply(sock, jid, `Contoh: ${prefix}fakewa <nama>|<tentang>|<nomor>`, m); return true; }
       await interim(sock, jid, m, '🎭 Lagi bikin fake WA ...');
@@ -85,7 +85,7 @@ async function handleJereMedia(ctx) {
       }
       return true;
     }
-    if (cmd === 'jfakecall' || cmd === 'fakecall') {
+    if (cmd === 'fakecall') {
       const parts = String(args || '').split('|').map((x) => String(x || '').trim());
       if (parts.length < 2) { await safeReply(sock, jid, `Contoh: ${prefix}fakecall <nama>|<durasi cth. 01:23:45>`, m); return true; }
       await interim(sock, jid, m, '📱 Lagi bikin fake call ...');
@@ -98,7 +98,7 @@ async function handleJereMedia(ctx) {
       }
       return true;
     }
-    if (cmd === 'jotaku' || cmd === 'otaku') {
+    if (cmd === 'otaku') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}otaku naruto`, m); return true; }
       await interim(sock, jid, m, '🎌 Lagi cari anime ...');
       try {
@@ -110,7 +110,7 @@ async function handleJereMedia(ctx) {
         await safeReply(sock, jid, jereErr(e), m); return true;
       }
     }
-    if (cmd === 'jotakudet' || cmd === 'otakudet') {
+    if (cmd === 'otakudet') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}otakudet <slug>`, m); return true; }
       await interim(sock, jid, m, '🎌 Lagi ambil detail anime ...');
       try {
@@ -122,7 +122,7 @@ async function handleJereMedia(ctx) {
         await safeReply(sock, jid, jereErr(e), m); return true;
       }
     }
-    if (cmd === 'jkomik' || cmd === 'komik') {
+    if (cmd === 'komik') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}komik solo leveling`, m); return true; }
       await interim(sock, jid, m, '📚 Lagi cari komik ...');
       try {
@@ -134,7 +134,7 @@ async function handleJereMedia(ctx) {
         await safeReply(sock, jid, jereErr(e), m); return true;
       }
     }
-    if (cmd === 'jmovie' || cmd === 'movie') {
+    if (cmd === 'movie') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}movie avengers`, m); return true; }
       await interim(sock, jid, m, '🎬 Lagi cari film ...');
       try {
@@ -146,7 +146,7 @@ async function handleJereMedia(ctx) {
         await safeReply(sock, jid, jereErr(e), m); return true;
       }
     }
-    if (cmd === 'jviu' || cmd === 'viu') {
+    if (cmd === 'viu') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}viu <judul drama>`, m); return true; }
       await interim(sock, jid, m, '🎬 Lagi cari drama Viu ...');
       try {

@@ -8,7 +8,6 @@ const {
   wrapQuoted,
   unwrapMessage,
   jereAi,
-  sendLongText,
   safeReply,
   interim,
   jereErr,
@@ -16,20 +15,11 @@ const {
 
 async function handleJereAi(ctx) {
   const { sock, m, jid, isGroup, sender, body, cmd, args, prefix, start, unwrapped } = ctx;
-    // ===== JERE-AI (10 fungsi; media via Buffer, teks via reply) =====
-    if (cmd === 'jtxt2img' || cmd === 'txt2img' || cmd === 'jimg') {
-      if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}txt2img kucing astronot di bulan`, m); return true; }
-      await interim(sock, jid, m, '🎨 Lagi generate gambar ...');
-      try {
-        const buf = await jereAi.txt2img(args);
-        await sock.sendMessage(jid, { image: buf, caption: `🎨 ${args.slice(0, 200)}` }, { quoted: m });
-      } catch (e) {
-        console.error(cmd, e?.message || e);
-        await safeReply(sock, jid, jereErr(e), m); return true;
-      }
-      return true;
-    }
-    if (cmd === 'jtxt2vid' || cmd === 'txt2vid' || cmd === 'jvideo' || cmd === 'video') {
+    // ===== JERE-AI (media via Buffer, teks via reply) =====
+    // CATATAN: txt2img & upscale & chat DIHAPUS — dobel dengan lane bot sendiri
+    //   (.img plugins/ai/03-sticker.js, .hd plugins/tools/10-tools.js, .ai plugins/ai/02-chat.js).
+    // Alias berawalan "j" juga dibuang supaya tiap fitur cuma punya satu nama.
+    if (cmd === 'txt2vid' || cmd === 'video') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}txt2vid sunset di neo tokyo`, m); return true; }
       await interim(sock, jid, m, '🎬 Lagi generate video (bisa 1-3 menit)...');
       try {
@@ -41,7 +31,7 @@ async function handleJereAi(ctx) {
       }
       return true;
     }
-    if (cmd === 'jsora' || cmd === 'sora') {
+    if (cmd === 'sora') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}sora drone di atas hutan purba`, m); return true; }
       await interim(sock, jid, m, '🎬 Lagi generate video Sora (bisa lama)...');
       try {
@@ -53,7 +43,7 @@ async function handleJereAi(ctx) {
       }
       return true;
     }
-    if (cmd === 'jsuno' || cmd === 'suno' || cmd === 'jlagu' || cmd === 'lagu') {
+    if (cmd === 'suno' || cmd === 'lagu') {
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}suno lagu pop ceria tentang kopi pagi\nFormat opsional: ${prefix}suno <prompt> | <judul> | <style>`, m); return true; }
       await interim(sock, jid, m, '🎵 Lagi bikin lagu (bisa 2-4 menit)...');
       try {
@@ -70,18 +60,7 @@ async function handleJereAi(ctx) {
       }
       return true;
     }
-    if (cmd === 'jchat' || cmd === 'chat') {
-      if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}chat halo, siapa kamu?`, m); return true; }
-      await interim(sock, jid, m, '💬 Lagi mikir ...');
-      try {
-        const out = await jereAi.chatAlt(args);
-        await sendLongText(sock, jid, String(out).slice(0, 3500), m); return true;
-      } catch (e) {
-        console.error(cmd, e?.message || e);
-        await safeReply(sock, jid, jereErr(e), m); return true;
-      }
-    }
-    if (cmd === 'jimg2vid' || cmd === 'img2vid') {
+    if (cmd === 'img2vid') {
       const quoted = getQuoted(m);
       const quotedImg = quoted?.quotedMessage?.imageMessage;
       const currentImg = m.message?.imageMessage;
@@ -98,24 +77,7 @@ async function handleJereAi(ctx) {
       }
       return true;
     }
-    if (cmd === 'jupscale' || cmd === 'upscale' || cmd === 'jhd') {
-      const quoted = getQuoted(m);
-      const quotedImg = quoted?.quotedMessage?.imageMessage;
-      const currentImg = m.message?.imageMessage;
-      if (!quotedImg && !currentImg) { await safeReply(sock, jid, `Reply gambar + ${prefix}upscale untuk HD-kan .`, m); return true; }
-      await interim(sock, jid, m, '✨ Lagi upscale gambar ...');
-      try {
-        const target = quotedImg ? wrapQuoted(jid, quoted) : m;
-        const buf = await downloadBuffer(target, sock);
-        const out = await jereAi.upscale(buf);
-        await sock.sendMessage(jid, { image: out, caption: '✨ upscale ' }, { quoted: m });
-      } catch (e) {
-        console.error(cmd, e?.message || e);
-        await safeReply(sock, jid, jereErr(e), m); return true;
-      }
-      return true;
-    }
-    if (cmd === 'jtoanime' || cmd === 'toanime') {
+    if (cmd === 'toanime') {
       const quoted = getQuoted(m);
       const quotedImg = quoted?.quotedMessage?.imageMessage;
       const currentImg = m.message?.imageMessage;
@@ -132,7 +94,7 @@ async function handleJereAi(ctx) {
       }
       return true;
     }
-    if (cmd === 'jclone' || cmd === 'clone') {
+    if (cmd === 'clone') {
       const quoted = getQuoted(m);
       const qInner = quoted?.quotedMessage ? unwrapMessage(quoted.quotedMessage) : null;
       const qAudio = qInner?.audioMessage;
@@ -150,7 +112,7 @@ async function handleJereAi(ctx) {
       }
       return true;
     }
-    if (cmd === 'jswap' || cmd === 'swap') {
+    if (cmd === 'swap') {
       const quoted = getQuoted(m);
       const quotedImg = quoted?.quotedMessage?.imageMessage;
       const currentImg = m.message?.imageMessage;
