@@ -317,39 +317,39 @@ function pluginCount() {
   try { return require('../lib/plugin-loader').loadPlugins().length; } catch { return 0; }
 }
 
+// Gaya mengikuti .about: hanya garis pemisah ━ + teks, TANPA kotak ╭ │ ╰.
+// Alasannya: font WhatsApp proporsional, sehingga │ dan ─ tidak sama lebar
+// dengan ━ dan tepi kotak selalu terlihat miring.
+const RUL = '━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
+const SEP = '━';
+
+function section(title) {
+  return `${SEP} ${title} ${SEP.repeat(Math.max(2, 30 - title.length))}`;
+}
+
 function header(pushName, prefix, opts = {}) {
   const { time, date } = nowParts();
   const nPlugins = pluginCount();
   const role = opts.isOwner ? '👑 owner' : 'user';
   return (
-`╭── [ *SONEZZ AI* ] ──╮
-│ ai · media · utility
-╰─────────────────────╯
-
-[ *user profile* ]
-├ name   : *${String(pushName).toLowerCase()}*
-├ prefix : \`${prefix}\`
-└ role   : *${role}*
-
-[ *bot stats* ]
-├ time    : *${time} wib*
-├ date    : *${date}*
-├ plugins : *${nPlugins} file*
-└ status  : *active*`
+`${RUL}\n` +
+`*SONEZZ AI ASSISTANT*\n` +
+`AI · Media · Utility · Fun\n` +
+`${RUL}\n\n` +
+`*USER*\n` +
+`• nama   : ${String(pushName).toLowerCase()}\n` +
+`• role   : ${role}\n` +
+`• prefix : ${prefix}\n\n` +
+`*BOT*\n` +
+`• waktu  : ${time} wib\n` +
+`• tanggal: ${date}\n` +
+`• plugin : ${nPlugins} file\n` +
+`• status : aktif`
   );
 }
 
 // Prefix aktif dipakai saat render baris command per kategori.
 let PREFIX_ = '.';
-
-function line(cat, name, desc, flag) {
-  const badges = [];
-  if (flag && flag.jere) badges.push('🌟');
-  if (flag && flag.reply) badges.push('💬');
-  if (flag && flag.owner) badges.push('👑');
-  const tag = badges.length ? ' ' + badges.join('') : '';
-  return `  ┣ ${PREFIX_}${name}${tag} — ${desc}`;
-}
 
 function renderCategory(cat, opts = {}) {
   // Ringkas: hanya nama command (tanpa keterangan) supaya muat dalam 1 pesan.
@@ -361,12 +361,11 @@ function renderCategory(cat, opts = {}) {
     const tag = badges.length ? ' ' + badges.join('') : '';
     return opts.compact
       ? `${PREFIX_}${n}${tag}`
-      : `  ┣ ${PREFIX_}${n}${tag} — ${d}`;
+      : `• ${PREFIX_}${n}${tag} — ${d}`;
   });
   return (
-`╭── [ *${cat.title}* ]\n` +
-lines.join(opts.compact ? '  ·  ' : '\n') +
-`\n╰──────────────`
+`${section(cat.title)}\n` +
+lines.join(opts.compact ? '  ·  ' : '\n')
   );
 }
 
@@ -386,14 +385,13 @@ function listMode(prefix, opts) {
   const tags = CATEGORIES.map((c) => (c.jere ? c.tag + ' 🌟' : c.tag));
   const rows = [];
   for (let i = 0; i < tags.length; i += 3) {
-    rows.push('  ┣ ' + tags.slice(i, i + 3).join('   ┣ '));
+    rows.push('• ' + tags.slice(i, i + 3).join('   ·   '));
   }
   return (
 header('user', prefix, opts) +
-`\n\n╭── [ *available categories* ]\n` +
+`\n\n${section('KATEGORI')}\n` +
 rows.join('\n') +
-`\n╰──────────────\n\n` +
-`> ketik \`${prefix}menu <kategori>\` untuk lihat isi satu kategori\n\n` +
+`\n\nketik \`${prefix}menu <kategori>\` untuk lihat isi satu kategori\n\n` +
 FOOTER_NOTE
   );
 }
@@ -402,14 +400,13 @@ function defaultMode(pushName, prefix, opts) {
   PREFIX_ = prefix;
   return (
 header(pushName, prefix, opts) +
-`\n\n` +
-`*quick navigation:*\n` +
-`• \`${prefix}menu all\` ➔ semua fitur bot\n` +
-`• \`${prefix}menu list\` ➔ daftar kategori\n` +
-`• \`${prefix}menu <kategori>\` ➔ per kategori\n` +
-`• \`${prefix}ping\` ➔ cek respon bot\n\n` +
-`*Private* → chat bebas\n` +
-`*Group* → \`${prefix}\` atau mention bot\n\n` +
+`\n\n${section('NAVIGASI')}\n` +
+`• \`${prefix}menu all\` — semua fitur bot\n` +
+`• \`${prefix}menu list\` — daftar kategori\n` +
+`• \`${prefix}menu <kategori>\` — per kategori\n` +
+`• \`${prefix}ping\` — cek respon bot\n\n` +
+`Private → chat bebas\n` +
+`Group → \`${prefix}\` atau mention bot\n\n` +
 FOOTER_NOTE
   );
 }
@@ -434,16 +431,8 @@ defaultMode('user', prefix, opts) +
   }
   // Kategori tidak perlu profile/stats diulang - cukup isi + cara pakai.
   return (
-`╭── [ *${cat.title}* ]\n` +
-cat.items.map(([n, d, f]) => {
-  const badges = [];
-  if (f && f.jere) badges.push('🌟');
-  if (f && f.reply) badges.push('💬');
-  if (f && f.owner) badges.push('👑');
-  return `  ┣ ${PREFIX_}${n}${badges.length ? ' ' + badges.join('') : ''} — ${d}`;
-}).join('\n') +
-`\n╰──────────────\n\n` +
-`> ketik \`${prefix}menu all\` untuk semua kategori · \`${prefix}menu list\` untuk daftar\n\n` +
+renderCategory(cat) +
+`\n\nketik \`${prefix}menu all\` untuk semua kategori · \`${prefix}menu list\` untuk daftar\n\n` +
 FOOTER_NOTE
   );
 }
