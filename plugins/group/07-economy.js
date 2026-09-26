@@ -1,6 +1,8 @@
-// handlers/economy.js — ECONOMY/RPG-level: level, leaderboard, limit, dompet, transfer, mining
-// Diekstrak verbatim dari handlers/messages.js; tanpa perubahan perilaku.
-// Dipanggil router handlers/messages.js sesuai urutan asli. Return true = tertangani.
+// handlers/economy.js — ECONOMY: level, limit, wallet, transfer, mining (nambang saldo)
+// Dipanggil router handlers/messages.js. Return true = tertangani.
+// CATATAN: balance/dompet/saldo dan leaderboard/lb/top sudah pindah ke router baru
+// (src/commands/modules/{economy/balance,rpg/leaderboard}.js) dan menang lebih dulu —
+// karena itu TIDAK ada cabangnya di sini lagi. .mine/.tambang = rambut RPG.
 const S = require('../../handlers/state');
 const {
   groupLane,
@@ -18,18 +20,15 @@ async function handleEconomy(ctx) {
         m
       ); return true;
     }
-    if (cmd === 'leaderboard' || cmd === 'lb' || cmd === 'top') {
-      const list = systems.leaderboard(10);
-      if (!list.length) { await safeReply(sock, jid, systems.leaderboardText(10), m); return true; }
-      const ids = list.map((e) => String(e.id));
-      await sock.sendMessage(jid, { text: systems.leaderboardText(10), mentions: ids }, { quoted: m });
-      return true;
-    }
+    // leaderboard / lb / top / ranking -> src/commands/modules/rpg/leaderboard.js
+    // (router baru menang di handlers/messages.js:108, jadi cabang ini dihapus agar tidak dobel)
     if (cmd === 'limit') {
       const l = systems.getLimit(sender);
       await safeReply(sock, jid, `⏳ *Limit harian:* ${l.remaining}/${l.max} tersisa.`, m); return true;
     }
-    if (cmd === 'dompet' || cmd === 'wallet' || cmd === 'saldo' || cmd === 'balance') {
+    // balance / saldo / dompet / bal -> src/commands/modules/economy/balance.js (baca cash + bank)
+    // wallet TIDAK terdaftar di router baru, jadi tetap dipegang plugin ini.
+    if (cmd === 'wallet') {
       const bal = systems.getBalance(sender);
       await safeReply(sock, jid, `💰 *Dompet @${String(sender).split('@')[0]}:* ${bal} koin.`, m); return true;
     }
@@ -44,7 +43,10 @@ async function handleEconomy(ctx) {
       await sock.sendMessage(jid, { text: r.msg, mentions: [String(sender), String(targets[0])] }, { quoted: m });
       return true;
     }
-    if (cmd === 'mining' || cmd === 'mine' || cmd === 'nambang') {
+    // Nambang SALDO (koin). Versi RAMBUT RPG memakai .mine/.tambang dan dipegang
+    // src/commands/modules/rpg/mine.js (router baru menang lebih dulu), jadi
+    // cmd === 'mine' sengaja TIDAK ada di sini — menu menulis .mining = nambang saldo.
+    if (cmd === 'mining' || cmd === 'nambang') {
       const r = systems.mine(sender);
       if (!r.ok) { await safeReply(sock, jid, r.msg, m); return true; }
       await safeReply(sock, jid, `⛏️ Dapat *${r.reward}* koin! Saldo: ${r.balance}.`, m); return true;

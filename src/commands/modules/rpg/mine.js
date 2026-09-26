@@ -58,7 +58,9 @@ function rand(min, max) {
 
 module.exports = {
   name: 'mine',
-  aliases: ['mining', 'tambang'],
+  // 'mining' SENGAJA tidak jadi alias: .mining dipakai plugins/group/07-economy.js
+  // untuk nambang SALDO (koin) — dua-duanya butuh reconcile di menu.
+  aliases: ['tambang'],
   description: 'Nambang 50-300 cash + EXP (cooldown 5 mnt)',
   cooldown: MINE_MS,
   groupOnly: false,
