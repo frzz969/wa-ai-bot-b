@@ -2,6 +2,8 @@
 // Diekstrak verbatim dari handlers/messages.js; tanpa perubahan perilaku.
 // Dipanggil router handlers/messages.js sesuai urutan asli. Return true = tertangani.
 const S = require('../../handlers/state');
+// Store yang sama dipakai src/commands/modules/group/groupset.js (antiflood/antilink/mute).
+const groupStore = require('../../src/extensions/safety/group-store');
 const {
   groupLane,
   systems,
@@ -199,6 +201,25 @@ async function handleGroup(ctx) {
         await safeReply(sock, jid, '✅ Antilink OFF.', m); return true;
       }
       await safeReply(sock, jid, `Contoh: ${prefix}antilink on / off (saat ini: ${systems.isAntilinkOn(jid) ? 'ON' : 'OFF'})`, m); return true;
+    }
+    if (cmd === 'antiflood') {
+      const ga = await groupLane.guardAdmin(sock, jid, sender);
+      if (ga) { await safeReply(sock, jid, ga, m); return true; }
+      const sub = String(args || '').trim().toLowerCase();
+      const st = groupStore.getGroup(jid) || {};
+      if (sub === 'on' || sub === 'off') {
+        groupStore.setGroup(jid, { antiflood: sub === 'on' });
+        await safeReply(
+          sock, jid,
+          `✅ Antiflood ${sub === 'on' ? 'ON — spam cepat diblokir.' : 'OFF.'}`,
+          m
+        ); return true;
+      }
+      await safeReply(
+        sock, jid,
+        `Contoh: ${prefix}antiflood on / off (saat ini: ${st.antiflood ? 'ON' : 'OFF'})`,
+        m
+      ); return true;
     }
     if (cmd === 'badword') {
       const ga = await groupLane.guardAdmin(sock, jid, sender);

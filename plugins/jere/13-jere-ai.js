@@ -17,8 +17,8 @@ const {
 async function handleJereAi(ctx) {
   const { sock, m, jid, isGroup, sender, body, cmd, args, prefix, start, unwrapped } = ctx;
     // ===== JERE-AI (10 fungsi; media via Buffer, teks via reply) =====
-    if (cmd === 'jtxt2img' || cmd === 'jimg') {
-      if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}jtxt2img kucing astronot di bulan`, m); return true; }
+    if (cmd === 'jtxt2img' || cmd === 'txt2img' || cmd === 'jimg') {
+      if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}txt2img kucing astronot di bulan`, m); return true; }
       await interim(sock, jid, m, '🎨 Lagi generate gambar (Jere)...');
       try {
         const buf = await jereAi.txt2img(args);
@@ -29,8 +29,8 @@ async function handleJereAi(ctx) {
       }
       return true;
     }
-    if (cmd === 'jtxt2vid' || cmd === 'jvideo') {
-      if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}jtxt2vid sunset di neo tokyo`, m); return true; }
+    if (cmd === 'jtxt2vid' || cmd === 'txt2vid' || cmd === 'jvideo' || cmd === 'video') {
+      if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}txt2vid sunset di neo tokyo`, m); return true; }
       await interim(sock, jid, m, '🎬 Lagi generate video (Jere, bisa 1-3 menit)...');
       try {
         const buf = await jereAi.txt2video(args);
@@ -41,8 +41,8 @@ async function handleJereAi(ctx) {
       }
       return true;
     }
-    if (cmd === 'jsora') {
-      if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}jsora drone di atas hutan purba`, m); return true; }
+    if (cmd === 'jsora' || cmd === 'sora') {
+      if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}sora drone di atas hutan purba`, m); return true; }
       await interim(sock, jid, m, '🎬 Lagi generate video Sora (Jere, bisa lama)...');
       try {
         const buf = await jereAi.sora(args);
@@ -53,8 +53,8 @@ async function handleJereAi(ctx) {
       }
       return true;
     }
-    if (cmd === 'jsuno' || cmd === 'jlagu') {
-      if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}jsuno lagu pop ceria tentang kopi pagi\nFormat opsional: ${prefix}jsuno <prompt> | <judul> | <style>`, m); return true; }
+    if (cmd === 'jsuno' || cmd === 'suno' || cmd === 'jlagu' || cmd === 'lagu') {
+      if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}suno lagu pop ceria tentang kopi pagi\nFormat opsional: ${prefix}suno <prompt> | <judul> | <style>`, m); return true; }
       await interim(sock, jid, m, '🎵 Lagi bikin lagu (Jere, bisa 2-4 menit)...');
       try {
         const parts = String(args).split('|').map((x) => String(x || '').trim()).filter(Boolean);
@@ -70,8 +70,8 @@ async function handleJereAi(ctx) {
       }
       return true;
     }
-    if (cmd === 'jchat') {
-      if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}jchat halo, siapa kamu?`, m); return true; }
+    if (cmd === 'jchat' || cmd === 'chat') {
+      if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}chat halo, siapa kamu?`, m); return true; }
       await interim(sock, jid, m, '💬 Lagi mikir (Jere)...');
       try {
         const out = await jereAi.chatAlt(args);
@@ -81,11 +81,11 @@ async function handleJereAi(ctx) {
         await safeReply(sock, jid, jereErr(e), m); return true;
       }
     }
-    if (cmd === 'jimg2vid') {
+    if (cmd === 'jimg2vid' || cmd === 'img2vid') {
       const quoted = getQuoted(m);
       const quotedImg = quoted?.quotedMessage?.imageMessage;
       const currentImg = m.message?.imageMessage;
-      if (!quotedImg && !currentImg) { await safeReply(sock, jid, `Reply gambar + ${prefix}jimg2vid [prompt animasi]`, m); return true; }
+      if (!quotedImg && !currentImg) { await safeReply(sock, jid, `Reply gambar + ${prefix}img2vid [prompt animasi]`, m); return true; }
       await interim(sock, jid, m, '🎬 Lagi animasikan gambar (Jere, bisa lama)...');
       try {
         const target = quotedImg ? wrapQuoted(jid, quoted) : m;
@@ -98,11 +98,11 @@ async function handleJereAi(ctx) {
       }
       return true;
     }
-    if (cmd === 'jupscale' || cmd === 'jhd') {
+    if (cmd === 'jupscale' || cmd === 'upscale' || cmd === 'jhd') {
       const quoted = getQuoted(m);
       const quotedImg = quoted?.quotedMessage?.imageMessage;
       const currentImg = m.message?.imageMessage;
-      if (!quotedImg && !currentImg) { await safeReply(sock, jid, `Reply gambar + ${prefix}jupscale untuk HD-kan (Jere).`, m); return true; }
+      if (!quotedImg && !currentImg) { await safeReply(sock, jid, `Reply gambar + ${prefix}upscale untuk HD-kan (Jere).`, m); return true; }
       await interim(sock, jid, m, '✨ Lagi upscale gambar (Jere)...');
       try {
         const target = quotedImg ? wrapQuoted(jid, quoted) : m;
@@ -115,11 +115,11 @@ async function handleJereAi(ctx) {
       }
       return true;
     }
-    if (cmd === 'jtoanime') {
+    if (cmd === 'jtoanime' || cmd === 'toanime') {
       const quoted = getQuoted(m);
       const quotedImg = quoted?.quotedMessage?.imageMessage;
       const currentImg = m.message?.imageMessage;
-      if (!quotedImg && !currentImg) { await safeReply(sock, jid, `Reply gambar + ${prefix}jtoanime [style] untuk ubah jadi anime.`, m); return true; }
+      if (!quotedImg && !currentImg) { await safeReply(sock, jid, `Reply gambar + ${prefix}toanime [style] untuk ubah jadi anime.`, m); return true; }
       await interim(sock, jid, m, '🎨 Lagi ubah jadi anime (Jere)...');
       try {
         const target = quotedImg ? wrapQuoted(jid, quoted) : m;
@@ -132,12 +132,12 @@ async function handleJereAi(ctx) {
       }
       return true;
     }
-    if (cmd === 'jclone') {
+    if (cmd === 'jclone' || cmd === 'clone') {
       const quoted = getQuoted(m);
       const qInner = quoted?.quotedMessage ? unwrapMessage(quoted.quotedMessage) : null;
       const qAudio = qInner?.audioMessage;
       const cAudio = unwrapped?.audioMessage;
-      if ((!qAudio && !cAudio) || !args) { await safeReply(sock, jid, `Reply VN/audio + ${prefix}jclone <teks> untuk tiru suara.`, m); return true; }
+      if ((!qAudio && !cAudio) || !args) { await safeReply(sock, jid, `Reply VN/audio + ${prefix}clone <teks> untuk tiru suara.`, m); return true; }
       await interim(sock, jid, m, '🎙️ Lagi clone suara (Jere)...');
       try {
         const target = qAudio ? wrapQuoted(jid, quoted) : m;
@@ -150,11 +150,11 @@ async function handleJereAi(ctx) {
       }
       return true;
     }
-    if (cmd === 'jswap') {
+    if (cmd === 'jswap' || cmd === 'swap') {
       const quoted = getQuoted(m);
       const quotedImg = quoted?.quotedMessage?.imageMessage;
       const currentImg = m.message?.imageMessage;
-      if (!quotedImg || !currentImg) { await safeReply(sock, jid, `Kirim gambar + reply gambar lain + caption ${prefix}jswap (butuh 2 wajah).`, m); return true; }
+      if (!quotedImg || !currentImg) { await safeReply(sock, jid, `Kirim gambar + reply gambar lain + caption ${prefix}swap (butuh 2 wajah).`, m); return true; }
       await interim(sock, jid, m, '🔄 Lagi faceswap (Jere)...');
       try {
         const buf1 = await downloadBuffer(m, sock);
