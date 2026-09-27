@@ -104,7 +104,8 @@ const CATEGORIES = [
     ['stiker', 'gambar/teks jadi stiker', { reply: true }],
     ['emoji', 'emoji jadi gambar'],
     ['iqc', 'quote iPhone online'],
-    ['iqclocal', 'quote iPhone offline'],
+    // iqclocal hanya muncul di menu saat saklar env IQCLOCAL_ENABLED=1
+    ...(process.env.IQCLOCAL_ENABLED === '1' ? [['iqclocal', 'quote iPhone offline (cadangan)']] : []),
   ] },
   { tag: 'vision', title: '👁️ VISION & VOICE', items: [
     ['@grup', 'Gambar — tanya AI tentang gambar:'],
@@ -138,6 +139,9 @@ const CATEGORIES = [
     ['hd', 'HD-kan gambar', { reply: true }],
     ['qrdetect', 'baca isi QR di gambar', { reply: true }],
     ['blurface', 'blur wajah di gambar', { reply: true }],
+    ['ampremfree', 'kirim link premium AM ke gmail'],
+    ['amverif', 'verifikasi link AM'],
+    ['ampremtemp', 'generate premium AM email temp (max 2)'],
   ] },
   { tag: 'minigame', title: '🎮 MINI GAME', items: [
     ['ttt', 'main TicTacToe lawan bot'],

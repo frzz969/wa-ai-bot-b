@@ -223,7 +223,12 @@ async function handleSticker(ctx) {
     }
 
     // ---------- LANE IQC LOKAL (lib/iqc.js, render offline) ----------
+    // Saklar manual: default MATI. Hidupkan via env IQCLOCAL_ENABLED=1 + restart
+    // saat .iqc online mati. File/aset tetap di disk (cost bareng fitur lain).
     if (cmd === 'iqclocal') {
+      if (process.env.IQCLOCAL_ENABLED !== '1') {
+        await safeReply(sock, jid, `⏸️ ${prefix}iqclocal lagi nonaktif.\nPakai ${prefix}iqc aja ya (lebih bagus).`, m); return true;
+      }
       await handleIqc(sock, jid, m, args, { quotedText: getQuotedText(m) }); return true;
     }
 
@@ -240,7 +245,7 @@ async function handleSticker(ctx) {
         await sock.sendMessage(jid, { image: buf, caption: `📱 *${label}*` }, { quoted: m });
       } catch (e) {
         console.error('iqc', e?.message || e);
-        await safeReply(sock, jid, `❌ ${e?.message || 'Gagal membuat IQC online.'} Coba lagi atau pakai ${prefix}iqclocal.`, m); return true;
+        await safeReply(sock, jid, `❌ ${e?.message || 'Gagal membuat IQC online.'}${process.env.IQCLOCAL_ENABLED === '1' ? ` Coba lagi atau pakai ${prefix}iqclocal.` : ' Coba lagi sebentar ya.'}`, m); return true;
       }
       return true;
     }
