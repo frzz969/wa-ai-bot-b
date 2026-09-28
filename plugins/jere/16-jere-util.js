@@ -163,7 +163,8 @@ async function handleJereUtil(ctx) {
     if (cmd === 'plugins') {
       if (!isOwner(sender, jid)) { await safeReply(sock, jid, '🔒 Khusus owner ya.', m); return true; }
       try {
-        const pluginsDir = path.join(__dirname, '..', 'src', 'commands');
+        // Path SEBELUMNYA 'src/commands' — folder itu tidak ada, hanya 'plugins/'.
+        const pluginsDir = path.join(__dirname, '..', '..', 'plugins');
         if (args) {
           const content = jereUtil.readPluginFile(pluginsDir, args);
           await sendLongText(sock, jid, `📄 *${args}*\n\n${String(content).slice(0, 3400)}`, m); return true;

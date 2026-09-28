@@ -236,6 +236,7 @@ const TAHLIL =
 
 // -------------------------------------------------------- Kisah Nabi ---
 const KISAH = [
+
   ['Adam', 'Manusia dan nabi pertama; diciptakan dari tanah lalu diajari nama-nama oleh Allah, kemudian diturunkan ke bumi, bertobat, dan diampuni.'],
   ['Idris', 'Dikenal cerdas dan rajin; pandai membaca-menulis dan berhitung, tekun beribadah, hingga Allah mengangkatnya ke kedudukan yang tinggi.'],
   ['Nuh', 'Berdakwah 950 tahun namun hanya sedikit yang beriman; atas perintah Allah ia membuat bahtera dan orang beriman selamat dari banjir besar.'],
