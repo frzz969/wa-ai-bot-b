@@ -59,6 +59,13 @@ const CATEGORIES = [
     ['shortlink', 'perpendek link'],
     ['kbbi', 'arti kata KBBI'],
     ['animesaran', 'rekomendasi anime'],
+    ['cnn', 'berita CNN'],
+    ['kompas', 'berita Kompas'],
+    ['detik', 'berita Detik'],
+    ['tempo', 'berita Tempo'],
+    ['okezone', 'berita Okezone'],
+    ['tribun', 'berita Tribun'],
+    ['cnbc', 'berita CNBC'],
   ] },
   // Tag tetap 'downloader' (bukan 'download') supaya .menu downloader tetap jalan,
   // sekaligus .menu download ikut resolve lewat pencocokan tag.includes().
@@ -148,6 +155,15 @@ const CATEGORIES = [
     ['kuis', 'soal acak'],
     ['kuislist', 'daftar kategori kuis'],
     ['jawab', 'jawab soal kuis'],
+    ['suit', 'main suit'],
+    ['slot', 'main slot'],
+    ['tebakgambar', 'tebak gambar'],
+    ['tebaklogo', 'tebak logo'],
+    ['tebaklagu', 'tebak lagu'],
+    ['caklontong', 'kuis cak lontong'],
+    ['family100', 'kuis family 100'],
+    ['asahotak', 'asah otak'],
+    ['susunkata', 'susun kata'],
   ] },
   // Tag tetap 'fun'. DIGABUNG dengan kategori PRIMBON & SERU, urutan & deskripsi utuh.
   // MINIGAME & RPG sengaja TIDAK digabung (RPG punya sistem/progres sendiri).
@@ -175,6 +191,22 @@ const CATEGORIES = [
     ['animequotes', 'quote anime random'],
     ['fakta', 'fakta unik'],
     ['alkitab', 'baca Alkitab'],
+    ['menfess', 'kirim pesan rahasia'],
+    ['balasmenfess', 'balas menfess via ID'],
+    ['stopmenfess', 'tutup thread menfess'],
+    ['stickerpack', 'paket stiker'],
+    ['ppcouple', 'pp couple random'],
+    ['ephoto', 'efek foto teks'],
+    ['fakeig', 'fake post IG'],
+    ['faketwit', 'fake tweet'],
+    ['fakestory', 'fake story'],
+    ['fakenotif', 'fake notifikasi'],
+    ['fakedana', 'fake bukti dana'],
+    ['fakegc', 'fake chat grup'],
+    ['start', 'mulai anon chat'],
+    ['next', 'ganti partner anon'],
+    ['stop', 'berhenti anon chat'],
+    ['kirim', 'kirim pesan anon'],
     ['tukar', 'tukar koin menjadi limit (50 koin = 1 limit)'],
   ] },
   { tag: 'rpg', title: '🎮 RPG', items: [
@@ -209,6 +241,19 @@ const CATEGORIES = [
     ['cekwarn', 'cek peringatan'],
     ['groupset', 'pengaturan grup'],
     ['afk', 'mode AFK'],
+    ['sider', 'deteksi anggota pasif'],
+    ['vote', 'mulai voting'],
+    ['upvote', 'setuju voting'],
+    ['downvote', 'tolak voting'],
+    ['checkvote', 'hasil voting'],
+    ['delvote', 'tutup voting'],
+    ['votekick', 'voting kick anggota'],
+    ['mute', 'kunci grup'],
+    ['unmute', 'buka grup'],
+    ['setwelcome', 'teks sambutan'],
+    ['setleft', 'teks perpisahan'],
+    ['resetlink', 'ganti link invite'],
+    ['ephemeral', 'pesan sementara'],
   ] },
   { tag: 'economy', title: '💰 ECONOMY', items: [
     ['daily', 'klaim harian'],
@@ -257,6 +302,16 @@ const CATEGORIES = [
     ['ytstalk', 'stalk YouTube'],
     ['ghstalk', 'stalk GitHub'],
     ['robstalk', 'stalk Roblox'],
+  ] },
+  { tag: 'islami', title: '🕌 ISLAMI', items: [
+    ['asmaulhusna', 'daftar asmaul husna'],
+    ['ayatkursi', 'baca ayat kursi'],
+    ['niatsholat', 'niat sholat'],
+    ['bacaansholat', 'bacaan sholat'],
+    ['doaharian', 'doa harian'],
+    ['doatahlil', 'doa tahlil'],
+    ['kisahnabi', 'kisah nabi'],
+    ['quotesislami', 'quote islami'],
   ] },
   { tag: 'ekstra', title: '🛠️ UTILITAS', items: [
     ['libur', 'hari libur nasional'],
@@ -311,10 +366,10 @@ function header(pushName, prefix, opts = {}) {
 `Halo kak *${String(pushName).toLowerCase()}* 👋, ada yang bisa dibantu?\n` +
 `🕐 ${date} · 🔑 Prefix \`${prefix}\`\n\n` +
 `*kamu*\n` +
-`• nama   : ${String(pushName).toLowerCase()}\n` +
-`• role   : ${role}\n` +
-`• plugin : ${pluginCount()} file\n` +
-`• uptime : ${time} wib`
+`▸ nama   : ${String(pushName).toLowerCase()}\n` +
+`▸ role   : ${role}\n` +
+`▸ plugin : ${pluginCount()} file\n` +
+`▸ uptime : ${time} wib`
   );
 }
 
@@ -330,7 +385,7 @@ function renderCategoryBox(cat) {
       first = false;
       continue;
     }
-    out.push(`│ ${PREFIX_}${n}${badges(f)} — ${d}`);
+    out.push(`│ ▸ ${PREFIX_}${n}${badges(f)} — ${d}`);
   }
   out.push('╰─');
   return out.join('\n');
@@ -340,7 +395,7 @@ function renderCategoryFull(cat) {
   const out = [];
   for (const [n, d, f] of cat.items) {
     if (n === '@grup') { out.push(''); out.push(`*${d}*`); continue; }
-    out.push(`• ${PREFIX_}${n}${badges(f)} — ${d}`);
+    out.push(`▸ ${PREFIX_}${n}${badges(f)} — ${d}`);
   }
   return `${RUL}\n*${cat.title}*\n${RUL}\n` + out.join('\n');
 }
@@ -362,10 +417,10 @@ function defaultMode(pushName, prefix, opts) {
 header(pushName, prefix, opts) +
 `\n\n${RUL}\n` +
 `*NAVIGASI*\n` +
-`• \`${prefix}menu all\` — semua fitur bot\n` +
-`• \`${prefix}menu list\` — daftar kategori\n` +
-`• \`${prefix}menu <kategori>\` — isi satu kategori\n` +
-`• \`${prefix}ping\` — cek respon bot\n\n` +
+`▸ \`${prefix}menu all\` — semua fitur bot\n` +
+`▸ \`${prefix}menu list\` — daftar kategori\n` +
+`▸ \`${prefix}menu <kategori>\` — isi satu kategori\n` +
+`▸ \`${prefix}ping\` — cek respon bot\n\n` +
 `*Private* → chat langsung\n` +
 `*Group* → gunakan \`${prefix}\` atau mention bot\n` +
 `${RUL}\n\n` +
@@ -373,11 +428,11 @@ FOOTER_NOTE
   );
 }
 
-function listMode(prefix, opts) {
+function listMode(prefix, opts, pushName) {
   PREFIX_ = prefix;
-  const rows = CATEGORIES.map((c) => `• \`${prefix}menu ${c.tag}\` — ${c.title}`);
+  const rows = CATEGORIES.map((c) => `▸ \`${prefix}menu ${c.tag}\` — ${c.title}`);
   return (
-header('user', prefix, opts) +
+header(pushName || 'kak', prefix, opts) +
 `\n\n${RUL}\n*KATEGORI* (${CATEGORIES.length})\n${RUL}\n` +
 rows.join('\n') +
 `\n\n> ketik \`${prefix}menu <kategori>\` untuk lihat isi satu kategori\n\n` +
@@ -404,11 +459,11 @@ FOOTER_NOTE
   );
 }
 
-function categoryMode(query, prefix, opts) {
+function categoryMode(query, prefix, opts, pushName) {
   PREFIX_ = prefix;
   const cat = findCategory(query);
   if (!cat) {
-    return defaultMode('user', prefix, opts) +
+    return defaultMode(pushName || 'kak', prefix, opts) +
       `\n\n❌ Kategori *"${query}"* tidak ada. Coba \`${prefix}menu list\` untuk daftar kategori.`;
   }
   return (
@@ -426,8 +481,8 @@ function buildMenu(pushName, prefix, mode, opts) {
   const q = String(mode || '').trim().toLowerCase();
   PREFIX_ = prefix;
   if (q === 'all') return allMode(prefix, pushName);
-  if (q === 'list' || q === 'kategori' || q === 'category') return listMode(prefix, o);
-  if (q) return categoryMode(q, prefix, o);
+  if (q === 'list' || q === 'kategori' || q === 'category') return listMode(prefix, o, pushName);
+  if (q) return categoryMode(q, prefix, o, pushName);
   return defaultMode(pushName, prefix, o);
 }
 

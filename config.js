@@ -7,7 +7,7 @@ module.exports = {
   JERE_API_KEY: process.env.JERE_API_KEY || '',
   JERE_API_BASE: 'https://api.jerexd.my.id',
   PAIRING_NUMBER: (process.env.PAIRING_NUMBER || '').replace(/[^0-9]/g, ''),
-  OWNER_NUMBER: (process.env.OWNER_NUMBER || '').replace(/[^0-9]/g, ''),
+  OWNER_NUMBER: (process.env.OWNER_NUMBER || '').replace(/[^0-9,\s]/g, ''),
 
   GEMINI_MODEL: 'gemini-3.5-flash-lite',
   GROQ_CHAT_MODEL: 'qwen/qwen3.8-27b',

@@ -98,7 +98,7 @@ async function handleBot(ctx) {
 
     // ---------- .run (eksekusi JS aman, OWNER ONLY) ----------
     if (cmd === 'run') {
-      if (!isOwner(m.key.participant, m.key.remoteJid)) {
+      if (!(await isOwnerAsync(sock, m.key.participant, jid, sender))) {
         await safeReply(sock, jid, '⛔ Hanya owner yang bisa pakai perintah ini.', m); return true;
       }
       const lastRun = runCooldown.get(sender) || 0;
