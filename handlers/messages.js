@@ -310,14 +310,63 @@ async function handleMessage(sock, m) {
 async function handleParticipantsUpdate(sock, update) {
   try {
     const { id, participants, action } = update || {};
-    if (!id || action !== 'add' || !systems.isWelcomeOn(id)) return;
+    if (!id) return;
     const arr = (Array.isArray(participants) ? participants : []).map(String).filter(Boolean);
     if (!arr.length) return;
-    const text =
-      `👋 *Selamat datang!*\n` +
-      arr.map((p) => `@${p.split('@')[0]}`).join(' ') +
-      `\nJangan lupa baca rules pakai .rules ya!`;
-    await sock.sendMessage(id, { text, mentions: arr });
+    const act = String(action || '').toLowerCase();
+
+    // (a) Anggota baru masuk.
+    if (act === 'add') {
+      try {
+        if (systems && typeof systems.isWelcomeOn === 'function' && !systems.isWelcomeOn(id)) return;
+      } catch { /* abaikan, lanjut kirim */ }
+      // Coba teks custom persisten; bila ada dipakai, bila null pakai default.
+      try {
+        let getWelcomeReply = null;
+        try {
+          ({ getWelcomeReply } = require('../plugins/group/08-furina-tools'));
+        } catch { getWelcomeReply = null; }
+        if (typeof getWelcomeReply === 'function') {
+          const custom = await getWelcomeReply(sock, id, arr);
+          if (custom && custom.text) {
+            await sock.sendMessage(id, {
+              text: custom.text,
+              mentions: (Array.isArray(custom.mentions) && custom.mentions.length) ? custom.mentions : arr,
+            });
+            return;
+          }
+        }
+      } catch { /* abaikan, pakai default */ }
+      const text =
+        `👋 *Selamat datang!*\n` +
+        arr.map((p) => `@${p.split('@')[0]}`).join(' ') +
+        `\nJangan lupa baca rules pakai .rules ya!`;
+      await sock.sendMessage(id, { text, mentions: arr });
+      return;
+    }
+
+    // (b) Anggota keluar / di-kick (varian Baileys: 'remove').
+    if (act === 'remove' || act === 'leave' || act === 'kick') {
+      try {
+        let getLeftReply = null;
+        try {
+          ({ getLeftReply } = require('../plugins/group/08-furina-tools'));
+        } catch { getLeftReply = null; }
+        if (typeof getLeftReply === 'function') {
+          const custom = await getLeftReply(sock, id, arr);
+          if (custom && custom.text) {
+            await sock.sendMessage(id, {
+              text: custom.text,
+              mentions: (Array.isArray(custom.mentions) && custom.mentions.length) ? custom.mentions : arr,
+            });
+            return;
+          }
+        }
+      } catch { /* abaikan, pakai default */ }
+      const text = `👋 ${arr.map((p) => `@${p.split('@')[0]}`).join(' ')} telah keluar. Sampai jumpa!`;
+      await sock.sendMessage(id, { text, mentions: arr });
+      return;
+    }
   } catch (e) {
     console.error('[welcome]', e?.message || e);
   }

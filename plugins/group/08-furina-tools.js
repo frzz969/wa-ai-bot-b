@@ -18,10 +18,10 @@
 const S = require('../../handlers/state');
 const { groupLane, systems, safeReply } = S;
 
-// ---------- Store in-memory (tanpa DB/file baru; hilang saat restart) ----------
+// ---------- Store in-memory (cache) + persist via systems.getGreet/setGreet ----------
 const votes = new Map(); // jid -> { topic, by, up:Set, down:Set, at }
 const votekicks = new Map(); // jid -> { target, by, up:Set, down:Set, at }
-const greetTexts = new Map(); // jid -> { welcome?: string, left?: string }
+const greetTexts = new Map(); // jid -> { welcome?: string, left?: string } (cache; sumber utama: systems greet.json)
 
 const VOTEKICK_MIN = 3; // ambang tetap ala Furina; grup kecil menyesuaikan otomatis (lihat requiredVotes)
 
@@ -73,6 +73,46 @@ function voteStatusText(jid, prefix) {
 // ---------- Helper teks join/leave custom (dipakai lane owner untuk wiring) ----------
 // Ganti placeholder: "@tag" atau "{tag}" -> mention user; "{grup}" -> nama grup (best-effort).
 // Return null bila tidak ada teks custom / welcome OFF -> caller pakai teks default lama.
+// Baca dari store persisten: cache (greetTexts) dulu, lalu systems.getGreet bila tersedia.
+function readStoredGreet(jid) {
+  const k = keyOf(jid);
+  let cached = {};
+  try {
+    cached = greetTexts.get(k) || {};
+  } catch { cached = {}; }
+  try {
+    if (systems && typeof systems.getGreet === 'function') {
+      const persisted = systems.getGreet(jid) || {};
+      const merged = {
+        ...(cached || {}),
+        ...(persisted || {}),
+      };
+      // Segarkan cache agar baca berikutnya cepat.
+      try {
+        if (merged.welcome || merged.left) greetTexts.set(k, merged);
+        else if (cached.welcome || cached.left) greetTexts.set(k, cached);
+      } catch { /* abaikan */ }
+      if (merged.welcome || merged.left) return merged;
+      return cached || {};
+    }
+  } catch { /* abaikan, pakai cache */ }
+  return cached || {};
+}
+
+function saveStoredGreet(jid, obj) {
+  const k = keyOf(jid);
+  const cur = (() => { try { return greetTexts.get(k) || {}; } catch { return {}; } })();
+  const next = { ...cur, ...(obj || {}) };
+  try {
+    greetTexts.set(k, next);
+  } catch { /* abaikan */ }
+  try {
+    if (systems && typeof systems.setGreet === 'function') {
+      systems.setGreet(jid, obj || {});
+    }
+  } catch { /* abaikan */ }
+  return next;
+}
 function renderGreet(raw, userJids, groupName) {
   let text = String(raw || '');
   const ids = (Array.isArray(userJids) ? userJids : []).map(String).filter(Boolean);
@@ -84,9 +124,9 @@ function renderGreet(raw, userJids, groupName) {
 
 async function getWelcomeReply(sock, jid, userJids) {
   try {
-    const g = greetTexts.get(keyOf(jid));
+    const g = readStoredGreet(jid);
     if (!g || !g.welcome) return null;
-    if (typeof systems.isWelcomeOn === 'function' && !systems.isWelcomeOn(jid)) return null;
+    if (systems && typeof systems.isWelcomeOn === 'function' && !systems.isWelcomeOn(jid)) return null;
     let name = '';
     try {
       const meta = await sock.groupMetadata(jid);
@@ -100,7 +140,7 @@ async function getWelcomeReply(sock, jid, userJids) {
 
 async function getLeftReply(sock, jid, userJids) {
   try {
-    const g = greetTexts.get(keyOf(jid));
+    const g = readStoredGreet(jid);
     if (!g || !g.left) return null;
     let name = '';
     try {
@@ -270,11 +310,8 @@ async function handleFurinaTools(ctx) {
     if (ga) { await safeReply(sock, jid, ga, m); return true; }
     const text = String(args || '').trim().slice(0, 1000);
     if (!text) { await safeReply(sock, jid, `Contoh: ${prefix}${cmd} Halo @tag, selamat datang di {grup}!`, m); return true; }
-    const k = keyOf(jid);
-    const cur = greetTexts.get(k) || {};
-    if (cmd === 'setwelcome') cur.welcome = text;
-    else cur.left = text;
-    greetTexts.set(k, cur);
+    if (cmd === 'setwelcome') saveStoredGreet(jid, { welcome: text });
+    else saveStoredGreet(jid, { left: text });
     const note = cmd === 'setwelcome'
       ? 'Hook join sudah ada, tapi teks custom baru terkirim setelah wiring getWelcomeReply (milik lane lain).'
       : 'Hook leave BELUM tersambung (handler hanya proses join) — teks tersimpan, belum terkirim otomatis.';
@@ -289,7 +326,7 @@ async function handleFurinaTools(ctx) {
     const sub = String(args || '').trim().toLowerCase();
     if (sub === 'on') { systems.welcomeOn(jid); await safeReply(sock, jid, '✅ Welcome ON.', m); return true; }
     if (sub === 'off') { systems.welcomeOff(jid); await safeReply(sock, jid, '✅ Welcome OFF.', m); return true; }
-    const cur = greetTexts.get(keyOf(jid));
+    const cur = readStoredGreet(jid);
     await safeReply(
       sock, jid,
       `Contoh: ${prefix}welcome on / off (saat ini: ${systems.isWelcomeOn(jid) ? 'ON' : 'OFF'})` +
