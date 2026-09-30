@@ -89,12 +89,27 @@ async function buildCommandCtx(sock, m, jid, isGroup, sender, body) {
       const meta = await sock.groupMetadata(jid);
       const list = Array.isArray(meta?.participants) ? meta.participants : [];
       const botNum = botJidNormalized(sock);
+      const botJidFull = String(sock?.user?.id || '');
+      const sameUserFn = (groupLane && typeof groupLane.sameUser === 'function') ? groupLane.sameUser : null;
+      const isAdmFn = (groupLane && typeof groupLane.isParticipantAdmin === 'function') ? groupLane.isParticipantAdmin : null;
+      const eqUser = (a, b) => {
+        if (!a || !b) return false;
+        if (String(a) === String(b)) return true;
+        if (sameUserFn) {
+          try {
+            if (sameUserFn(a, b)) return true;
+          } catch {}
+        }
+        return false;
+      };
       for (const p of list) {
         const pid = String(p?.id || '');
-        const pNum = pid.split('@')[0].split(':')[0];
-        const isAdm = p?.admin === 'admin' || p?.admin === 'superadmin';
-        if (pid === sender && isAdm) admin = true;
-        if (pNum && botNum && pNum === botNum && isAdm) botAdmin = true;
+        const phone = p?.phoneNumber ? String(p.phoneNumber) : '';
+        const isAdm = isAdmFn ? isAdmFn(p) : (p?.admin === 'admin' || p?.admin === 'superadmin');
+        if (!isAdm) continue;
+        if (eqUser(pid, sender) || (phone && eqUser(phone, sender))) admin = true;
+        if (botNum && (eqUser(pid, botNum) || (phone && eqUser(phone, botNum)))) botAdmin = true;
+        if (botJidFull && (eqUser(pid, botJidFull) || (phone && eqUser(phone, botJidFull)))) botAdmin = true;
       }
     } catch {}
   }

@@ -129,24 +129,34 @@ async function handleGames(ctx) {
           }
           await safeReply(sock, jid, `❌ Kurang tepat, coba lagi! (jawab pakai ${prefix}jawab <teks>)`, m); return true;
         }
-        // 2) Sesi kuis Jere terpisah (lib/jere-fun.js) — tidak bentrok dengan kuis lokal.
-        const js = jereQuizSessions.get(scopeKey(jid, sender));
+        // 2) Sesi kuis Jere terpisah (legacy) — produsen .jkuis sudah dihapus
+        // di plugins/jere/14-jere-game.js, jadi sesi baru tak akan ada.
+        // Pertahankan bacaan sesi lama bila masih ada; bila tak ada jangan diam.
+        const js = (jereQuizSessions && typeof jereQuizSessions.get === 'function')
+          ? jereQuizSessions.get(scopeKey(jid, sender))
+          : null;
         if (js) {
+          if (!jereFun || typeof jereFun.checkJawaban !== 'function') {
+            if (jereQuizSessions && typeof jereQuizSessions.delete === 'function') {
+              jereQuizSessions.delete(scopeKey(jid, sender));
+            }
+            await safeReply(sock, jid, `ℹ️ Mode ${prefix}jkuis sedang nonaktif. Mulai kuis aktif pakai ${prefix}kuis (lihat ${prefix}kuislist).`, m); return true;
+          }
           const r = jereFun.checkJawaban(args, js.jawabanList && js.jawabanList.length ? js.jawabanList : js.jawaban);
           if (r.surrender) {
             jereQuizSessions.delete(scopeKey(jid, sender));
-            await safeReply(sock, jid, `🏳️ Menyerah! Jawabannya: *${jereFun.formatJawaban(js.jawabanList && js.jawabanList.length ? js.jawabanList : js.jawaban)}*\n\nSoal baru? Ketik ${prefix}jkuis ${js.game || ''}`.trim(), m); return true;
+            await safeReply(sock, jid, `🏳️ Menyerah! Jawabannya: *${jereFun.formatJawaban(js.jawabanList && js.jawabanList.length ? js.jawabanList : js.jawaban)}*\n\nSoal baru? Ketik ${prefix}kuis (mode ${prefix}jkuis nonaktif)`.trim(), m); return true;
           }
           if (r.correct) {
             jereQuizSessions.delete(scopeKey(jid, sender));
-            await safeReply(sock, jid, `✅ Benar! Jawabannya: *${jereFun.formatJawaban(js.jawabanList && js.jawabanList.length ? js.jawabanList : js.jawaban)}*\n\nSoal baru? Ketik ${prefix}jkuis ${js.game || ''}`.trim(), m); return true;
+            await safeReply(sock, jid, `✅ Benar! Jawabannya: *${jereFun.formatJawaban(js.jawabanList && js.jawabanList.length ? js.jawabanList : js.jawaban)}*\n\nSoal baru? Ketik ${prefix}kuis (mode ${prefix}jkuis nonaktif)`.trim(), m); return true;
           }
           if (r.close) {
             await safeReply(sock, jid, `😿 Dikit lagi! Coba lagi ya (jawab pakai ${prefix}jawab <teks>, atau ${prefix}jawab nyerah untuk menyerah).`, m); return true;
           }
           await safeReply(sock, jid, `❌ Kurang tepat, coba lagi! (jawab pakai ${prefix}jawab <teks>)`, m); return true;
         }
-        await safeReply(sock, jid, `Belum ada soal aktif. Mulai dulu pakai ${prefix}kuis atau ${prefix}jkuis <game>`, m); return true;
+        await safeReply(sock, jid, `Belum ada soal aktif. Mulai dulu pakai ${prefix}kuis (lihat ${prefix}kuislist).\nℹ️ Mode ${prefix}jkuis sedang nonaktif.`, m); return true;
       } catch (e) {
         console.error('jawab', e?.message || e);
         await safeReply(sock, jid, '❌ Gagal cek jawaban. Coba lagi ya.', m); return true;

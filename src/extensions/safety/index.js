@@ -46,8 +46,34 @@ async function resolveIsAdmin(sock, jid, sender) {
   } else {
     const meta = await sock.groupMetadata(jid);
     const list = Array.isArray(meta?.participants) ? meta.participants : [];
+    const sameTol = (a, b) => {
+      if (!a || !b) return false;
+      const sa = String(a);
+      const sb = String(b);
+      if (sa === sb) return true;
+      const na = normNum(sa);
+      const nb = normNum(sb);
+      if (na && nb && na === nb) return true;
+      return sa.split('@')[0].split(':')[0] === sb.split('@')[0].split(':')[0];
+    };
+    const isAdmTol = (p) => {
+      if (!p) return false;
+      const ad = p.admin;
+      if (ad === 'admin' || ad === 'superadmin') return true;
+      if (Array.isArray(ad) && ad.some((x) => x === 'admin' || x === 'superadmin')) return true;
+      if (ad && typeof ad === 'object') {
+        try {
+          if (Object.values(ad).some((x) => x === 'admin' || x === 'superadmin')) return true;
+        } catch {}
+      }
+      if (p.isAdmin || p.isSuperAdmin) return true;
+      return false;
+    };
     for (const p of list) {
-      if (String(p?.id || '') === String(sender) && (p?.admin === 'admin' || p?.admin === 'superadmin')) {
+      if (!isAdmTol(p)) continue;
+      const pid = String(p?.id || '');
+      const phone = p?.phoneNumber ? String(p.phoneNumber) : '';
+      if (sameTol(pid, sender) || (phone && sameTol(phone, sender))) {
         admin = true;
         break;
       }

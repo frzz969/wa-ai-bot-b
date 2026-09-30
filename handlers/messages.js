@@ -268,6 +268,17 @@ async function handleMessage(sock, m) {
       );
     }
 
+    // Fallback perintah tak dikenal: prefix/mention tapi tak ada plugin yang menangani.
+    // Hanya bila tidak ada pluginError (sudah dibalas di atas) agar tidak double-reply.
+    // Private tanpa prefix/mention tidak masuk sini (freechat di bawah tetap jalan).
+    if ((hasPrefix || mentioned) && !pluginError) {
+      return await safeReply(
+        sock, jid,
+        `❓ Perintah \`${prefix}${cmd}\` tidak dikenal.\nKetik ${prefix}menu untuk daftar command, contoh: ${prefix}menu / ${prefix}kuislist.`,
+        m
+      );
+    }
+
     // Chat pribadi: teks BEBAS tanpa perintah -> jawab AI.
     // PENTING: hanya kalau TIDAK ada prefix/mention. Kalau user mengetik
     // ".menu" dan tidak ada plugin yang menangani, jangan jatuh ke freechat

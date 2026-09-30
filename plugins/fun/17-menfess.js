@@ -5,7 +5,38 @@
 const S = require('../../handlers/state');
 const { safeReply } = S;
 
-// id (#XXXXXX) -> { a: senderA_JID, b: targetB_JID, active: true }
+// Toleran LID vs PN: sender bisa @lid sedangkan target @s.whatsapp.net
+let sameUser = (a, b) => String(a) === String(b);
+try {
+  const g = require('../../lib/group');
+  if (g && typeof g.sameUser === 'function') sameUser = g.sameUser;
+} catch {}
+
+// Resolve LID -> PN via Baileys signalRepository (toleran-gagal, timeout 2.5s).
+async function resolvePN(sock, jid) {
+  try {
+    const s = String(jid || '');
+    if (!s.includes('@lid')) return s;
+    const map = sock?.signalRepository?.lidMapping;
+    if (!map || typeof map.getPNForLID !== 'function') return s;
+    const pn = await Promise.race([
+      map.getPNForLID(s),
+      new Promise((r) => setTimeout(() => r(null), 2500)),
+    ]);
+    return pn ? String(pn) : s;
+  } catch { return String(jid || ''); }
+}
+
+async function isSameUserEx(sock, a, b) {
+  if (sameUser(a, b)) return true;
+  try {
+    const [ra, rb] = await Promise.all([resolvePN(sock, a), resolvePN(sock, b)]);
+    if (sameUser(ra, rb)) return true;
+    if (sameUser(a, rb)) return true;
+    if (sameUser(ra, b)) return true;
+  } catch {}
+  return false;
+}
 const menfessMap = new Map();
 
 // Alfabet tanpa yang ambigu (tanpa 0/O, 1/I)
@@ -24,9 +55,17 @@ function genId() {
 }
 
 function normId(raw) {
-  const s = String(raw || '').trim().toUpperCase().replace(/^#/, '');
-  if (!/^[A-Z2-9]{6}$/.test(s)) return null;
-  return '#' + s;
+  // Toleran: user sering copy "(#XXXXXX)" atau "#xxxxxx " dari bubble chat.
+  // Ambil 6 char alfanumerik pertama yang mirip ID, abaikan kurung/spasi.
+  const s = String(raw || '').trim().toUpperCase();
+  const m = s.match(/#?\s*\(?\s*#?\s*([A-Z0-9]{6})\s*\)?/);
+  if (!m) return null;
+  let code = m[1];
+  // Normalisasi ambiguitas umum: O->0 ditolak (alfabet tak pakai 0/1/O/I),
+  // tapi terima ketikan user O=I? -> tolak saja biar jelas. Longgarkan:
+  // izinkan 0,1,O,I agar tidak "Format salah" padahal ID mirip.
+  if (!/^[A-Z0-9]{6}$/.test(code)) return null;
+  return '#' + code;
 }
 
 function senderNum(sender) {
@@ -63,12 +102,12 @@ async function handleMenfess(ctx) {
       await safeReply(sock, jid, `❌ Nomor tujuan tidak valid.\nContoh: ${prefix}menfess 62812xxxxxxx|halo`, m);
       return true;
     }
-    if (targetNum === senderNum(sender)) {
+    const targetJid = `${targetNum}@s.whatsapp.net`;
+    if (await isSameUserEx(sock, sender, targetJid)) {
       await safeReply(sock, jid, `❌ Tidak bisa kirim menfess ke diri sendiri.`, m);
       return true;
     }
     const id = genId();
-    const targetJid = `${targetNum}@s.whatsapp.net`;
     menfessMap.set(id, { a: String(sender), b: targetJid, active: true });
     try {
       await sock.sendMessage(
@@ -97,9 +136,17 @@ async function handleMenfess(ctx) {
 
   if (cmd === 'balasmenfess') {
     const raw = String(args || '').trim();
-    const sep = raw.indexOf('|');
-    const idRaw = sep === -1 ? raw.trim() : raw.slice(0, sep).trim();
-    const balasan = sep === -1 ? '' : raw.slice(sep + 1).trim();
+    let sep = raw.indexOf('|');
+    let idRaw, balasan;
+    if (sep !== -1) {
+      idRaw = raw.slice(0, sep).trim();
+      balasan = raw.slice(sep + 1).trim();
+    } else {
+      // Fallback: ".balasmenfess #XXXXXX halo" (tanpa pipa)
+      const sp = raw.search(/\s/);
+      if (sp === -1) { idRaw = raw.trim(); balasan = ''; }
+      else { idRaw = raw.slice(0, sp).trim(); balasan = raw.slice(sp + 1).trim(); }
+    }
     const id = normId(idRaw);
     if (!id || !balasan) {
       await safeReply(
@@ -116,8 +163,8 @@ async function handleMenfess(ctx) {
     }
     const me = String(sender);
     let lawan = null;
-    if (me === th.a) lawan = th.b;
-    else if (me === th.b) lawan = th.a;
+    if (await isSameUserEx(sock, me, th.a)) lawan = th.b;
+    else if (await isSameUserEx(sock, me, th.b)) lawan = th.a;
     else {
       await safeReply(sock, jid, `❌ ID tidak dikenal / sudah ditutup.`, m);
       return true;
@@ -155,7 +202,7 @@ async function handleMenfess(ctx) {
       await safeReply(sock, jid, `❌ ID tidak dikenal / sudah ditutup.`, m);
       return true;
     }
-    if (String(sender) !== th.a) {
+    if (!(await isSameUserEx(sock, sender, th.a))) {
       await safeReply(sock, jid, `❌ Hanya pengirim awal yang bisa menutup thread ini.`, m);
       return true;
     }
