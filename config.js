@@ -6,6 +6,8 @@ module.exports = {
   GROQ_API_KEY: process.env.GROQ_API_KEY || '',
   JERE_API_KEY: process.env.JERE_API_KEY || '',
   JERE_API_BASE: 'https://api.jerexd.my.id',
+  AM_API_BASE: process.env.AM_API_BASE || 'https://am.dapjisync.my.id',
+  AMPRIVATE_KEY: process.env.AMPRIVATE_KEY || '',
   PAIRING_NUMBER: (process.env.PAIRING_NUMBER || '').replace(/[^0-9]/g, ''),
   OWNER_NUMBER: (process.env.OWNER_NUMBER || '').replace(/[^0-9,\s]/g, ''),
 

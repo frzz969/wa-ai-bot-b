@@ -5,13 +5,19 @@
 const S = require('../../handlers/state');
 const { safeReply, interim } = S;
 
-// Web https://am.dapjisync.my.id pakai PUBLIC_API_KEY='FREE' hardcode —
-// bot meniru persis: setiap request kirim header X-API-Key: FREE.
-const AM_API_BASE = 'https://am.dapjisync.my.id';
-const AM_API_KEY = 'FREE';
-
+// Web https://am.dapjisync.my.id — X-API-Key selalu FREE,
+// bypass dari AMPRIVATE_KEY (.env/config.js) dikirim via X-Bypass-Key hanya jika ada isi.
 function getAmConfig() {
-  return { base: AM_API_BASE, key: AM_API_KEY };
+  let base = 'https://am.dapjisync.my.id';
+  let apiKey = 'FREE';
+  let bypassKey = '';
+  try {
+    const cfg = require('../../config');
+    if (cfg.AM_API_BASE) base = String(cfg.AM_API_BASE).replace(/\/+$/, '');
+    const k = String(cfg.AMPRIVATE_KEY || process.env.AMPRIVATE_KEY || '').trim();
+    if (k) bypassKey = k;
+  } catch {}
+  return { base, apiKey, bypassKey };
 }
 
 // Map memory module: sender -> gmail (dipakai amverif setelah ampremfree)
@@ -30,10 +36,12 @@ function pickMessage(data, fallback) {
   return s || fallback;
 }
 
-async function postJson(url, key, body, timeoutMs) {
+async function postJson(url, { apiKey, bypassKey } = {}, body, timeoutMs) {
+  const headers = { 'Content-Type': 'application/json', 'X-API-Key': apiKey || 'FREE' };
+  if (bypassKey) headers['X-Bypass-Key'] = bypassKey;
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-API-Key': key },
+    headers,
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(timeoutMs || 25000),
   });
@@ -56,11 +64,11 @@ async function handleAm(ctx) {
         await safeReply(sock, jid, `❌ Gmail tidak valid.\nContoh: ${prefix}ampremfree user@gmail.com\nGmail harus berakhiran @gmail.com ya.`, m);
         return true;
       }
-      const { base, key } = getAmConfig();
+      const { base, apiKey, bypassKey } = getAmConfig();
       await loading(sock, jid, m, '📩 Lagi mengirim link premium ke Gmail...');
       let res, data;
       try {
-        ({ res, data } = await postJson(`${base}/api/send`, key, { gmail }));
+        ({ res, data } = await postJson(`${base}/api/send`, { apiKey, bypassKey }, { gmail }));
       } catch (e) {
         console.error('ampremfree', e?.message || e);
         await safeReply(sock, jid, '❌ Gagal mengirim link. Server AM sedang sibuk, coba lagi sebentar ya.', m);
@@ -112,11 +120,11 @@ async function handleAm(ctx) {
         await safeReply(sock, jid, `❌ Link tidak valid.\nContoh: ${prefix}amverif https://...\nTempel magic link lengkap dari email ya.`, m);
         return true;
       }
-      const { base, key } = getAmConfig();
+      const { base, apiKey, bypassKey } = getAmConfig();
       await loading(sock, jid, m, '🔐 Lagi verifikasi link premium...');
       let res, data;
       try {
-        ({ res, data } = await postJson(`${base}/api/verif`, key, { gmail, link }));
+        ({ res, data } = await postJson(`${base}/api/verif`, { apiKey, bypassKey }, { gmail, link }));
       } catch (e) {
         console.error('amverif', e?.message || e);
         await safeReply(sock, jid, '❌ Verifikasi gagal. Server AM sedang sibuk, coba lagi sebentar ya.', m);
@@ -158,11 +166,11 @@ async function handleAm(ctx) {
         await safeReply(sock, jid, `❌ Maksimal 2 akun per request biar server enteng.\nContoh: ${prefix}ampremtemp 2 (atau tanpa angka = 1 akun)`, m);
         return true;
       }
-      const { base, key } = getAmConfig();
+      const { base, apiKey, bypassKey } = getAmConfig();
       await loading(sock, jid, m, `⏳ Lagi generate ${total} akun premium (email temp)...\nIni agak lama, tunggu ya.`);
       let res, data;
       try {
-        ({ res, data } = await postJson(`${base}/api/bulk`, key, { total }, 90000));
+        ({ res, data } = await postJson(`${base}/api/bulk`, { apiKey, bypassKey }, { total }, 90000));
       } catch (e) {
         console.error('ampremtemp', e?.message || e);
         await safeReply(sock, jid, '❌ Generate gagal. Server AM sedang sibuk, coba lagi sebentar ya.', m);
