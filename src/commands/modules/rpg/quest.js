@@ -5,6 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 const systems = require('../../../../lib/systems');
+const { withWalletLock } = require('../../../../lib/wallet-lock');
 
 const QUEST_FILE = path.join(__dirname, '..', '..', '..', '..', 'database', 'quest.json');
 const WALLET_FILE = path.join(__dirname, '..', '..', '..', '..', 'database', 'wallet.json');
@@ -130,17 +131,28 @@ module.exports = {
         );
         return;
       }
-      if (claimed[q.id]?.claimed) {
-        await ctx.reply('✅ Quest ini sudah di-claim!');
+      // Cek claimed + reward + penanda dijalankan atomik: double-claim paralel
+      // tidak bisa dua-duanya lolos sebelum penanda tersimpan.
+      const result = await withWalletLock('rpg:quest:claim', () => {
+        const freshClaimed = getClaimed(sender);
+        if (freshClaimed[q.id]?.claimed) return { err: '✅ Quest ini sudah di-claim!' };
+        const freshStats = getStats(sender);
+        if (!q.isDone(freshStats.level, freshStats.total)) {
+          return {
+            err: `📌 Quest *${q.name}* belum selesai.\n_${q.description} (target: ${q.goalText})_\nProgresmu: Lv.${freshStats.level}, total ${freshStats.total}`,
+          };
+        }
+        const bal = addCashPreserve(sender, q.rewardCash);
+        const lv = systems.addXp(sender, q.rewardExp);
+        setClaimed(sender, q.id);
+        return { bal, lv };
+      });
+
+      if (result.err) {
+        await ctx.reply(result.err);
         return;
       }
-      if (!q.isDone(st.level, st.total)) {
-        await ctx.reply(`📌 Quest *${q.name}* belum selesai.\n_${q.description} (target: ${q.goalText})_\nProgresmu: Lv.${st.level}, total ${st.total}`);
-        return;
-      }
-      const bal = addCashPreserve(sender, q.rewardCash);
-      const lv = systems.addXp(sender, q.rewardExp);
-      setClaimed(sender, q.id);
+      const { bal, lv } = result;
       let text = `✅ Quest *${q.name}* selesai!\n🪙 +${q.rewardCash} → saldo: ${bal}\n⭐ +${q.rewardExp} EXP → Lv.${lv.level} (${lv.xp} XP)`;
       if (lv && lv.leveledUp) text += `\n🎉 Naik ke *Lv.${lv.level}!*`;
       await ctx.reply(text);

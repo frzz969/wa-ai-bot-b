@@ -6,6 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const systems = require('../../../../lib/systems');
+const { withWalletLock } = require('../../../../lib/wallet-lock');
 
 const DAILY_CASH = 5000;
 const DAILY_EXP = 50;
@@ -25,23 +26,17 @@ function readWalletRaw() {
   }
 }
 
-function writeLastDaily(id, now) {
-  try {
-    const db = readWalletRaw();
-    const k = String(id || '').trim();
-    if (!k) return;
-    const cur = db[k] && typeof db[k] === 'object' ? db[k] : {};
-    // Pertahankan shape kompatibel { balance, lastMine }, tambah lastDaily.
-    db[k] = {
-      balance: Number(cur.balance || 0),
-      lastMine: Number(cur.lastMine || 0),
-      lastDaily: now,
-    };
-    fs.mkdirSync(path.dirname(WALLET_FILE), { recursive: true });
-    fs.writeFileSync(WALLET_FILE, JSON.stringify(db, null, 2));
-  } catch {
-    // non-fatal: guard cooldown in-memory tetap melindungi
-  }
+function writeLastDaily(db, id, now) {
+  const k = String(id || '').trim();
+  if (!k) return;
+  const cur = db[k] && typeof db[k] === 'object' ? db[k] : {};
+  // Pertahankan shape kompatibel { balance, lastMine }, tambah lastDaily.
+  db[k] = {
+    ...cur,
+    balance: Number(cur.balance || 0),
+    lastMine: Number(cur.lastMine || 0),
+    lastDaily: now,
+  };
 }
 
 function formatSisa(ms) {
@@ -64,21 +59,31 @@ module.exports = {
     const sender = ctx.sender;
     const now = Date.now();
 
-    // Cek persist (tahan restart). Guard pipeline sudah cek in-memory duluan.
-    try {
+    // Cek persist + klaim dijalankan atomik: dua klaim paralel tidak bisa
+    // dua-duanya lolos cek cooldown sebelum penulisan penanda.
+    const result = await withWalletLock('economy:daily', () => {
       const db = readWalletRaw();
       const last = Number(db[String(sender)]?.lastDaily || 0);
       const sisa = DAILY_MS - (now - last);
-      if (sisa > 0) {
-        await ctx.reply(`🎁 Bansos sudah diklaim! Balik lagi dalam ~${formatSisa(sisa)} ya.`);
-        return;
-      }
-    } catch {}
+      if (sisa > 0) return { cooldown: sisa };
 
-    const balance = systems.addBalance(sender, DAILY_CASH);
-    const lv = systems.addXp(sender, DAILY_EXP);
-    writeLastDaily(sender, now);
+      const balance = systems.addBalance(sender, DAILY_CASH);
+      const lv = systems.addXp(sender, DAILY_EXP);
+      // addBalance/addXp menulis file mereka sendiri; tulis ulang penanda
+      // dengan data wallet terbaru supaya tidak menimpa perubahan di atas.
+      const fresh = readWalletRaw();
+      writeLastDaily(fresh, sender, now);
+      fs.mkdirSync(path.dirname(WALLET_FILE), { recursive: true });
+      fs.writeFileSync(WALLET_FILE, JSON.stringify(fresh, null, 2));
+      return { balance, lv };
+    });
 
+    if (result.cooldown) {
+      await ctx.reply(`🎁 Bansos sudah diklaim! Balik lagi dalam ~${formatSisa(result.cooldown)} ya.`);
+      return;
+    }
+
+    const { balance, lv } = result;
     let text =
       `🎁 *BANSOS HARIAN*\n` +
       `+${DAILY_CASH} cash → saldo: ${balance}\n` +

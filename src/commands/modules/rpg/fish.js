@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const systems = require('../../../../lib/systems');
+const { withWalletLock } = require('../../../../lib/wallet-lock');
 
 const FISH_MS = 30 * 1000;
 const WALLET_FILE = path.join(__dirname, '..', '..', '..', '..', 'database', 'wallet.json');
@@ -28,29 +29,15 @@ function readWalletRaw() {
   }
 }
 
-function addCashPreserve(id, amount) {
+function saveCashWithMarker(id, amount, now) {
   const k = String(id || '').trim();
   const db = readWalletRaw();
   const cur = db[k] && typeof db[k] === 'object' ? db[k] : {};
   const balance = Number(cur.balance || 0) + Math.floor(Number(amount || 0));
-  db[k] = { ...cur, balance };
-  try {
-    fs.mkdirSync(path.dirname(WALLET_FILE), { recursive: true });
-    fs.writeFileSync(WALLET_FILE, JSON.stringify(db, null, 2));
-  } catch {}
+  db[k] = { ...cur, balance, lastFish: now };
+  fs.mkdirSync(path.dirname(WALLET_FILE), { recursive: true });
+  fs.writeFileSync(WALLET_FILE, JSON.stringify(db, null, 2));
   return balance;
-}
-
-function writeLastFish(id, now) {
-  try {
-    const db = readWalletRaw();
-    const k = String(id || '').trim();
-    if (!k) return;
-    const cur = db[k] && typeof db[k] === 'object' ? db[k] : {};
-    db[k] = { ...cur, balance: Number(cur.balance || 0), lastFish: now };
-    fs.mkdirSync(path.dirname(WALLET_FILE), { recursive: true });
-    fs.writeFileSync(WALLET_FILE, JSON.stringify(db, null, 2));
-  } catch {}
 }
 
 function rand(min, max) {
@@ -68,22 +55,26 @@ module.exports = {
   async execute(ctx) {
     const sender = ctx.sender;
     const now = Date.now();
-    try {
+
+    const result = await withWalletLock('rpg:fish', () => {
       const db = readWalletRaw();
       const last = Number(db[String(sender)]?.lastFish || 0);
       const sisa = FISH_MS - (now - last);
-      if (sisa > 0) {
-        await ctx.reply(`🎣 Sabar! Lempar lagi dalam ~${Math.ceil(sisa / 1000)} detik ya.`);
-        return;
-      }
-    } catch {}
+      if (sisa > 0) return { cooldown: sisa };
 
-    const c = CATCHES[Math.floor(Math.random() * CATCHES.length)];
-    const reward = Math.max(50, Math.min(300, rand(c.min, c.max)));
-    const balance = addCashPreserve(sender, reward);
-    const lv = systems.addXp(sender, c.exp);
-    writeLastFish(sender, now);
+      const c = CATCHES[Math.floor(Math.random() * CATCHES.length)];
+      const reward = Math.max(50, Math.min(300, rand(c.min, c.max)));
+      const balance = saveCashWithMarker(sender, reward, now);
+      const lv = systems.addXp(sender, c.exp);
+      return { c, reward, balance, lv };
+    });
 
+    if (result.cooldown) {
+      await ctx.reply(`🎣 Sabar! Lempar lagi dalam ~${Math.ceil(result.cooldown / 1000)} detik ya.`);
+      return;
+    }
+
+    const { c, reward, balance, lv } = result;
     let text = `🎣 *Mancing!*\n\n${c.emoji} Dapat: *${c.name}*\n🪙 +${reward} → saldo: ${balance}\n⭐ +${c.exp} EXP → Lv.${lv.level} (${lv.xp} XP)`;
     if (lv && lv.leveledUp) text += `\n🎉 Naik ke *Lv.${lv.level}!*`;
     await ctx.reply(text);

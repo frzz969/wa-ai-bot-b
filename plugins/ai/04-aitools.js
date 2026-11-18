@@ -21,10 +21,12 @@ const {
   interim,
   chunkText,
   aiWrap,
+  memoryOptsFrom,
 } = S;
 
 async function handleAitools(ctx) {
   const { sock, m, jid, isGroup, sender, body, cmd, args, prefix, start, unwrapped } = ctx;
+  const memOpts = memoryOptsFrom(m, jid);
     // ---------- 2. AI TOOLS ----------
     if (cmd === 'ask') {
       if (!args) {
@@ -38,14 +40,14 @@ async function handleAitools(ctx) {
           if (ctx.length > 15000) ctx = ctx.slice(0, 15000);
           const prompt = `Berdasarkan kutipan dokumen "${doc.name}" berikut, jawab pertanyaan hanya dari isi kutipan (jangan mengarang, jika tidak ada jawab jujur):\n\n${ctx}\n\nPertanyaan: ${args}`;
           const answer = await chatAI(prompt);
-          pushMessage(jid, 'user', args);
-          pushMessage(jid, 'bot', answer);
+          pushMessage(jid, 'user', args, memOpts);
+          pushMessage(jid, 'bot', answer, memOpts);
           await safeReply(sock, jid, answer, m); return true;
         }
-        const prompt = buildContextPrompt(jid, args);
+        const prompt = buildContextPrompt(jid, args, memOpts);
         const answer = await chatAI(prompt);
-        pushMessage(jid, 'user', args);
-        pushMessage(jid, 'bot', answer);
+        pushMessage(jid, 'user', args, memOpts);
+        pushMessage(jid, 'bot', answer, memOpts);
         await safeReply(sock, jid, answer, m); return true;
       } catch (e) {
         console.error('ask', e?.message || e);
@@ -67,8 +69,8 @@ async function handleAitools(ctx) {
         await interim(sock, jid, m, '📝 Lagi membaca dan menyusun ringkasan lengkap...');
         try {
           const summary = await summarizeDocument(doc.text, doc.name);
-          pushMessage(jid, 'user', `[summarize: ${doc.name}]`);
-          pushMessage(jid, 'bot', summary);
+          pushMessage(jid, 'user', `[summarize: ${doc.name}]`, memOpts);
+          pushMessage(jid, 'bot', summary, memOpts);
           await sendLongText(sock, jid, `📝 *Ringkasan ${doc.name}:*\n${summary}`, m); return true;
         } catch (e) {
           if (e && e.code === 'TOO_LONG') {
@@ -119,8 +121,8 @@ async function handleAitools(ctx) {
       }
       try {
         const webp = await textToSticker(args);
-        pushMessage(jid, 'user', '.brat ' + args);
-        pushMessage(jid, 'bot', '[mengirim stiker brat]');
+        pushMessage(jid, 'user', '.brat ' + args, memOpts);
+        pushMessage(jid, 'bot', '[mengirim stiker brat]', memOpts);
         await sock.sendMessage(jid, { sticker: webp }, { quoted: m });
       } catch (e) {
         console.error('brat', e?.message || e);

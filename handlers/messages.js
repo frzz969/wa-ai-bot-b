@@ -195,7 +195,15 @@ async function tryToolRouting(sock, m, jid, sender, body) {
     };
     const r = await toolRouter.dispatchToolCall(ctx, result.call);
     if (r.needConfirm) {
-      await safeReply(sock, jid, r.prompt, m);
+      // Tombol dulu; kalau client WA tidak support / error, kirim prompt teks biasa.
+      let sentButtons = false;
+      if (r.buttonMessage) {
+        try {
+          await sock.sendMessage(jid, r.buttonMessage, { quoted: m });
+          sentButtons = true;
+        } catch {}
+      }
+      if (!sentButtons) await safeReply(sock, jid, r.prompt, m);
       return true;
     }
     if (r.rejected) {
@@ -219,10 +227,37 @@ async function tryToolRouting(sock, m, jid, sender, body) {
   return false;
 }
 
+// FASE 5+: klik tombol konfirmasi (✅/❌) dicegat sebelum filter teks — balasan
+// tombol tidak punya `conversation`, jadi raw='' dan akan terbuang kalau lewat bawah.
+async function tryConfirmButton(sock, m, jid, sender) {
+  try {
+    const id = toolRouter.extractButtonId(m);
+    if (!id) return false;
+    const ctx = { jid, sender, reply: (text) => safeReply(sock, jid, text, m) };
+    const r = toolRouter.consumePending(id, ctx);
+    if (!r) return false;
+    if (r.ok && r.synthetic) {
+      await safeReply(sock, jid, r.message, m).catch(() => {});
+      await executeCommandAs({ sock, m, jid, isGroup: jid.endsWith('@g.us'), sender }, r.synthetic.cmd, r.synthetic.args);
+    } else if (r.message) {
+      await safeReply(sock, jid, r.message, m).catch(() => {});
+    }
+    return true;
+  } catch (e) {
+    console.error('[confirm-button]', e?.message || e);
+    return false;
+  }
+}
+
 async function handleMessage(sock, m) {
   try {
     if (!m?.message || m.key?.fromMe) return;
     const jid = m.key.remoteJid;
+    const sender = getSender(m);
+
+    // Tombol konfirmasi berisiko ditangani lebih dulu (balasan tombol bukan teks biasa).
+    if (await tryConfirmButton(sock, m, jid, sender)) return;
+
     const isGroup = jid.endsWith('@g.us');
     const raw = extractText(m);
     const unwrapped = unwrapMessage(m.message || {}) || {};
@@ -273,7 +308,6 @@ async function handleMessage(sock, m) {
     const cmd = parts[0].toLowerCase();
     const args = parts.slice(1).join(' ').trim();
 
-    const sender = getSender(m);
     const start = Date.now(); // untuk .ping (RTT)
 
     await sock.sendPresenceUpdate('composing', jid).catch(() => {});

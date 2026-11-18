@@ -1,9 +1,17 @@
 // src/guards/throttles/rate-limiter.js — max 5 command / 10 detik per user (CJS).
-// Referensi: Haruna-Bot src/guards/throttles/rate-limiter.js (diadaptasi tanpa node-cache/ESM).
+// Counter bertahan restart lewat lib/rate-store.js (database/rate-limit.json).
+const store = require('../../../lib/rate-store');
+
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 10 * 1000;
 
 const hits = new Map(); // sender -> number[] timestamp ms
+
+// Hydrate dari disk saat modul dimuat. Tidak menimpa counter yang sudah ada.
+for (const [k, arr] of Object.entries(store.load())) {
+  hits.set(k, Array.isArray(arr) ? arr : []);
+}
+store.attach(hits);
 
 function prune(arr, now) {
   const cut = now - RATE_LIMIT_WINDOW_MS;
@@ -26,6 +34,7 @@ async function checkRateLimit(ctx /* , command */) {
   arr.push(now);
   // Batasi memori: simpan max 2x lipat window.
   if (arr.length > RATE_LIMIT_MAX * 4) arr.splice(0, arr.length - RATE_LIMIT_MAX * 4);
+  store.scheduleSave();
   if (arr.length > RATE_LIMIT_MAX) {
     // Balas hanya saat pertama kali melewati batas di window ini (hindari spam).
     if (arr.length === RATE_LIMIT_MAX + 1) {
@@ -40,6 +49,7 @@ async function checkRateLimit(ctx /* , command */) {
 
 function resetRateLimit(sender) {
   hits.delete(String(sender || ''));
+  store.deleteKey(String(sender || ''));
 }
 
 // Bersihkan timestamp kedaluwarsa + key kosong (dipakai scheduler Fase 2 tiap 10 menit).
@@ -59,7 +69,10 @@ function cleanupRateLimits(now = Date.now()) {
       removed++;
     }
   }
+  if (removed) store.scheduleSave();
   return removed;
 }
 
-module.exports = { RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS, checkRateLimit, resetRateLimit, cleanupRateLimits, _hits: hits };
+function flushRateLimits() { return store.flush(); }
+
+module.exports = { RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS, checkRateLimit, resetRateLimit, cleanupRateLimits, flushRateLimits, _hits: hits };

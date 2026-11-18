@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const systems = require('../../../../lib/systems');
+const { withWalletLock } = require('../../../../lib/wallet-lock');
 
 const MINE_MS = 5 * 60 * 1000;
 const WALLET_FILE = path.join(__dirname, '..', '..', '..', '..', 'database', 'wallet.json');
@@ -27,29 +28,15 @@ function readWalletRaw() {
   }
 }
 
-function addCashPreserve(id, amount) {
+function saveCashWithMarker(id, amount, now) {
   const k = String(id || '').trim();
   const db = readWalletRaw();
   const cur = db[k] && typeof db[k] === 'object' ? db[k] : {};
   const balance = Number(cur.balance || 0) + Math.floor(Number(amount || 0));
-  db[k] = { ...cur, balance };
-  try {
-    fs.mkdirSync(path.dirname(WALLET_FILE), { recursive: true });
-    fs.writeFileSync(WALLET_FILE, JSON.stringify(db, null, 2));
-  } catch {}
+  db[k] = { ...cur, balance, lastMine: now };
+  fs.mkdirSync(path.dirname(WALLET_FILE), { recursive: true });
+  fs.writeFileSync(WALLET_FILE, JSON.stringify(db, null, 2));
   return balance;
-}
-
-function writeLastMine(id, now) {
-  try {
-    const db = readWalletRaw();
-    const k = String(id || '').trim();
-    if (!k) return;
-    const cur = db[k] && typeof db[k] === 'object' ? db[k] : {};
-    db[k] = { ...cur, balance: Number(cur.balance || 0), lastMine: now };
-    fs.mkdirSync(path.dirname(WALLET_FILE), { recursive: true });
-    fs.writeFileSync(WALLET_FILE, JSON.stringify(db, null, 2));
-  } catch {}
 }
 
 function rand(min, max) {
@@ -69,22 +56,26 @@ module.exports = {
   async execute(ctx) {
     const sender = ctx.sender;
     const now = Date.now();
-    try {
+
+    const result = await withWalletLock('rpg:mine', () => {
       const db = readWalletRaw();
       const last = Number(db[String(sender)]?.lastMine || 0);
       const sisa = MINE_MS - (now - last);
-      if (sisa > 0) {
-        await ctx.reply(`⛏️ Capek! Tunggu ~${Math.ceil(sisa / 60000)} menit lagi.`);
-        return;
-      }
-    } catch {}
+      if (sisa > 0) return { cooldown: sisa };
 
-    const m = MINERALS[Math.floor(Math.random() * MINERALS.length)];
-    const reward = Math.max(50, Math.min(300, rand(m.min, m.max)));
-    const balance = addCashPreserve(sender, reward);
-    const lv = systems.addXp(sender, m.exp);
-    writeLastMine(sender, now);
+      const m = MINERALS[Math.floor(Math.random() * MINERALS.length)];
+      const reward = Math.max(50, Math.min(300, rand(m.min, m.max)));
+      const balance = saveCashWithMarker(sender, reward, now);
+      const lv = systems.addXp(sender, m.exp);
+      return { m, reward, balance, lv };
+    });
 
+    if (result.cooldown) {
+      await ctx.reply(`⛏️ Capek! Tunggu ~${Math.ceil(result.cooldown / 60000)} menit lagi.`);
+      return;
+    }
+
+    const { m, reward, balance, lv } = result;
     let text = `⛏️ *Mining!*\n\n${m.emoji} Dapat: *${m.name}*\n🪙 +${reward} → saldo: ${balance}\n⭐ +${m.exp} EXP → Lv.${lv.level} (${lv.xp} XP)`;
     if (lv && lv.leveledUp) text += `\n🎉 Naik ke *Lv.${lv.level}!*`;
     await ctx.reply(text);

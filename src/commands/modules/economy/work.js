@@ -5,6 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 const systems = require('../../../../lib/systems');
+const { withWalletLock } = require('../../../../lib/wallet-lock');
 
 const WORK_MS = 30 * 60 * 1000; // 30 menit
 const WALLET_FILE = path.join(__dirname, '..', '..', '..', '..', 'database', 'wallet.json');
@@ -30,32 +31,21 @@ function readWalletRaw() {
   }
 }
 
-// Tambah cash dengan MEMPERTAHANKAN semua field existing (bank, lastMine, lastDaily, ...).
-function addCashPreserve(id, amount) {
+function saveWalletRaw(db) {
+  fs.mkdirSync(path.dirname(WALLET_FILE), { recursive: true });
+  fs.writeFileSync(WALLET_FILE, JSON.stringify(db, null, 2));
+}
+
+function saveCashWithMarker(id, amount, now) {
   const k = String(id || '').trim();
   if (!k) return 0;
   const db = readWalletRaw();
   const cur = db[k] && typeof db[k] === 'object' ? db[k] : {};
   const balance = Number(cur.balance || 0) + Math.floor(Number(amount || 0));
-  db[k] = { ...cur, balance };
-  try {
-    fs.mkdirSync(path.dirname(WALLET_FILE), { recursive: true });
-    fs.writeFileSync(WALLET_FILE, JSON.stringify(db, null, 2));
-  } catch {}
+  db[k] = { ...cur, balance, lastWork: now };
+  if (cur.lastMine === undefined && db[k].lastMine === undefined) db[k].lastMine = 0;
+  saveWalletRaw(db);
   return balance;
-}
-
-function writeLastWork(id, now) {
-  try {
-    const db = readWalletRaw();
-    const k = String(id || '').trim();
-    if (!k) return;
-    const cur = db[k] && typeof db[k] === 'object' ? db[k] : {};
-    db[k] = { ...cur, balance: Number(cur.balance || 0), lastWork: now };
-    if (cur.lastMine === undefined && db[k].lastMine === undefined) db[k].lastMine = 0;
-    fs.mkdirSync(path.dirname(WALLET_FILE), { recursive: true });
-    fs.writeFileSync(WALLET_FILE, JSON.stringify(db, null, 2));
-  } catch {}
 }
 
 function formatSisa(ms) {
@@ -81,23 +71,27 @@ module.exports = {
   async execute(ctx) {
     const sender = ctx.sender;
     const now = Date.now();
-    try {
+
+    const result = await withWalletLock('economy:work', () => {
       const db = readWalletRaw();
       const last = Number(db[String(sender)]?.lastWork || 0);
       const sisa = WORK_MS - (now - last);
-      if (sisa > 0) {
-        await ctx.reply(`💼 Kamu masih capek! Istirahat ~${formatSisa(sisa)} lagi ya.`);
-        return;
-      }
-    } catch {}
+      if (sisa > 0) return { cooldown: sisa };
 
-    const job = JOBS[Math.floor(Math.random() * JOBS.length)];
-    // Clamp ke 300-5000 sesuai spek Fase 3.
-    const reward = Math.max(300, Math.min(5000, rand(job.min, job.max)));
-    const balance = addCashPreserve(sender, reward);
-    const lv = systems.addXp(sender, job.exp);
-    writeLastWork(sender, now);
+      const job = JOBS[Math.floor(Math.random() * JOBS.length)];
+      // Clamp ke 300-5000 sesuai spek Fase 3.
+      const reward = Math.max(300, Math.min(5000, rand(job.min, job.max)));
+      const balance = saveCashWithMarker(sender, reward, now);
+      const lv = systems.addXp(sender, job.exp);
+      return { job, reward, balance, lv };
+    });
 
+    if (result.cooldown) {
+      await ctx.reply(`💼 Kamu masih capek! Istirahat ~${formatSisa(result.cooldown)} lagi ya.`);
+      return;
+    }
+
+    const { job, reward, balance, lv } = result;
     let text =
       `💼 *Bekerja*\n` +
       `Kamu kerja sebagai *${job.name}*\n` +

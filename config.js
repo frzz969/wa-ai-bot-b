@@ -16,12 +16,23 @@ function resolvePrefix() {
   return '.';
 }
 
+// Nexray: satu host primer + host alternatif sebagai fallback saat request gagal.
+const nexrayBase = String(
+  process.env.NEXRAY_BASE || process.env.PUBLIC_API_BASE || 'https://api.nexray.web.id'
+).replace(/\/+$/, '');
+const nexrayHosts = ['https://api.nexray.web.id', 'https://api.nexray.eu.cc'];
+const nexrayFallback = nexrayHosts.find((h) => h !== nexrayBase) || 'https://api.nexray.web.id';
+
 module.exports = {
   PREFIX: resolvePrefix(),
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
   GROQ_API_KEY: process.env.GROQ_API_KEY || '',
   JERE_API_KEY: process.env.JERE_API_KEY || '',
   JERE_API_BASE: 'https://api.jerexd.my.id',
+  // Nexray punya dua host aktif. Satu konstanta dipakai public-api + tools-remote;
+  // env override (NEXRAY_BASE, alias lama PUBLIC_API_BASE) ganti host tanpa edit kode.
+  NEXRAY_BASE: nexrayBase,
+  NEXRAY_FALLBACK: nexrayFallback,
   AM_API_BASE: process.env.AM_API_BASE || 'https://am.dapjisync.my.id',
   AMPRIVATE_KEY: process.env.AMPRIVATE_KEY || '',
   PAIRING_NUMBER: (process.env.PAIRING_NUMBER || '').replace(/[^0-9]/g, ''),

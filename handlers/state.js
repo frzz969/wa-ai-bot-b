@@ -425,6 +425,21 @@ function groupSenderOpts(m) {
   };
 }
 
+// opts memory dipakai buildContextPrompt/pushMessage untuk isolasi per-pengirim.
+// `sender` (dari participant || sender || remoteJid) menentukan scope; untuk grup
+// sertakan metadata tampilan agar format pesan grup tetap terbaca.
+function memoryOptsFrom(m, jid) {
+  const sender = String(
+    (m && (m.key?.participant || m.sender || m.key?.remoteJid)) || ''
+  ).trim();
+  const opts = { sender };
+  if (String(jid || m?.key?.remoteJid || '').endsWith('@g.us') && m) {
+    Object.assign(opts, groupSenderOpts(m));
+    opts.senderId = opts.senderId || sender;
+  }
+  return opts;
+}
+
 function isMentionToBot(m, sock) {
   const info =
     m.message?.extendedTextMessage?.contextInfo ||
@@ -469,11 +484,13 @@ async function sendMenuWithHeader(sock, jid, m, text) {
 // Wrapper prompt via chatAI + memory (hemat kode untuk perintah AI TOOLS/CODE/CREATIVE)
 async function aiWrap(sock, jid, m, userText, promptPrefix, usage, tag, style) {
   if (!userText) return await safeReply(sock, jid, usage, m);
+  // Kirim identitas pengirim ke memory agar riwayat terisolasi per-user di grup.
+  const memOpts = memoryOptsFrom(m, jid);
   try {
-    const prompt = buildContextPrompt(jid, `${promptPrefix}${userText}`);
+    const prompt = buildContextPrompt(jid, `${promptPrefix}${userText}`, memOpts);
     const answer = await chatAI(prompt, undefined, undefined, style || config.STYLE);
-    pushMessage(jid, 'user', userText);
-    pushMessage(jid, 'bot', answer);
+    pushMessage(jid, 'user', userText, memOpts);
+    pushMessage(jid, 'bot', answer, memOpts);
     return await safeReply(sock, jid, answer, m);
   } catch (e) {
     console.error(tag || 'ai', e?.message || e);
@@ -504,8 +521,9 @@ async function visionWrap(sock, jid, m, instruction, usage, tag) {
     const v = await compressForVision(buf, mime);
     const p = await preprocessForOCR(v.buffer);
     const answer = await chatAI(instruction + OCR_SUFFIX, p.buffer.toString('base64'), p.mime);
-    pushMessage(jid, 'user', instruction + ' [gambar]');
-    pushMessage(jid, 'bot', answer);
+    const memOpts = memoryOptsFrom(m, jid);
+    pushMessage(jid, 'user', instruction + ' [gambar]', memOpts);
+    pushMessage(jid, 'bot', answer, memOpts);
     return await safeReply(sock, jid, answer, m);
   } catch (e) {
     console.error(tag || 'vision', e?.message || e);
@@ -542,11 +560,12 @@ async function handleVN(sock, jid, m, target, audioMeta) {
   }
   // Putus rantai: transkrip dikirim SEGERA, jawaban AI menyusul pesan kedua
   await safeReply(sock, jid, `🎙️ *Transkrip:*\n${transcript}`, m);
-  pushMessage(jid, 'user', '[VN] ' + transcript);
+  const memOpts = memoryOptsFrom(m, jid);
+  pushMessage(jid, 'user', '[VN] ' + transcript, memOpts);
   let answer = '';
   try {
     answer = await chatAI(`Transkrip VN berikut, jawab/tanggapi singkat:\n"${transcript}"`);
-    pushMessage(jid, 'bot', answer);
+    pushMessage(jid, 'bot', answer, memOpts);
   } catch (e) {
     console.error('vn', e?.message || e);
     answer = '(AI sedang sibuk, ini hanya hasil transkrip.)';
@@ -653,6 +672,7 @@ module.exports = {
   getQuotedText,
   getMentionList,
   groupSenderOpts,
+  memoryOptsFrom,
   isMentionToBot,
   safeReply,
   interim,

@@ -4,6 +4,7 @@
 // Alias: .deposit/.tabung/.withdraw/.ambil juga terdaftar (tetap via loader).
 const fs = require('fs');
 const path = require('path');
+const { withWalletLock } = require('../../../../lib/wallet-lock');
 
 const BANK_CD = 5000;
 const DEFAULT_BANK_LIMIT = 10000;
@@ -91,7 +92,7 @@ module.exports = {
 
     // Tanpa argumen -> tampilkan info saldo bank.
     if (!sub || (sub !== 'deposit' && sub !== 'tabung' && sub !== 'withdraw' && sub !== 'ambil')) {
-      const e = getEntry(sender);
+      const e = await withWalletLock('economy:bank:info', () => getEntry(sender));
       await ctx.reply(
         `🏦 *BANK*\n` +
         `🪙 Cash: ${e.cash}\n` +
@@ -108,31 +109,37 @@ module.exports = {
       return;
     }
 
-    const e = getEntry(sender);
-    if (sub === 'deposit' || sub === 'tabung') {
-      if (e.cash < amount) {
-        await ctx.reply(`❌ Cash kurang (punya ${e.cash}, mau nabung ${amount}).`);
-        return;
+    // Seluruh read-modify-write wallet dijalankan di dalam lock: antrean deposit
+    // / withdraw paralel tidak bisa saling menimpa saldo.
+    const result = await withWalletLock('economy:bank', () => {
+      const e = getEntry(sender);
+      if (sub === 'deposit' || sub === 'tabung') {
+        if (e.cash < amount) return { err: `❌ Cash kurang (punya ${e.cash}, mau nabung ${amount}).` };
+        if (e.bank + amount > e.limit) {
+          return {
+            err: `❌ Bank penuh! Kapasitas ${e.limit} (isi ${e.bank}). Maks nabung ${e.limit - e.bank}.`,
+          };
+        }
+        const cur = e.db[e.key] && typeof e.db[e.key] === 'object' ? e.db[e.key] : {};
+        e.db[e.key] = { ...cur, balance: e.cash - amount, bank: e.bank + amount, bank_limit: e.limit };
+        saveWalletRaw(e.db);
+        return { ok: true, deposit: true, amount, cash: e.cash - amount, bank: e.bank + amount, limit: e.limit };
       }
-      if (e.bank + amount > e.limit) {
-        await ctx.reply(`❌ Bank penuh! Kapasitas ${e.limit} (isi ${e.bank}). Maks nabung ${e.limit - e.bank}.`);
-        return;
-      }
+      if (e.bank < amount) return { err: `❌ Saldo bank kurang (isi ${e.bank}, mau ambil ${amount}).` };
       const cur = e.db[e.key] && typeof e.db[e.key] === 'object' ? e.db[e.key] : {};
-      e.db[e.key] = { ...cur, balance: e.cash - amount, bank: e.bank + amount, bank_limit: e.limit };
+      e.db[e.key] = { ...cur, balance: e.cash + amount, bank: e.bank - amount, bank_limit: e.limit };
       saveWalletRaw(e.db);
-      await ctx.reply(`✅ Deposit *${amount}* berhasil!\n🪙 Cash: ${e.cash - amount}\n🏦 Bank: ${e.bank + amount} / ${e.limit}`);
-      return;
-    }
+      return { ok: true, deposit: false, amount, cash: e.cash + amount, bank: e.bank - amount, limit: e.limit };
+    });
 
-    // withdraw / ambil
-    if (e.bank < amount) {
-      await ctx.reply(`❌ Saldo bank kurang (isi ${e.bank}, mau ambil ${amount}).`);
+    if (result.err) {
+      await ctx.reply(result.err);
       return;
     }
-    const cur = e.db[e.key] && typeof e.db[e.key] === 'object' ? e.db[e.key] : {};
-    e.db[e.key] = { ...cur, balance: e.cash + amount, bank: e.bank - amount, bank_limit: e.limit };
-    saveWalletRaw(e.db);
-    await ctx.reply(`✅ Withdraw *${amount}* berhasil!\n🪙 Cash: ${e.cash + amount}\n🏦 Bank: ${e.bank - amount} / ${e.limit}`);
+    if (result.deposit) {
+      await ctx.reply(`✅ Deposit *${result.amount}* berhasil!\n🪙 Cash: ${result.cash}\n🏦 Bank: ${result.bank} / ${result.limit}`);
+      return;
+    }
+    await ctx.reply(`✅ Withdraw *${result.amount}* berhasil!\n🪙 Cash: ${result.cash}\n🏦 Bank: ${result.bank} / ${result.limit}`);
   },
 };
