@@ -354,6 +354,13 @@ function pluginCount() {
   try { return require('../lib/plugin-loader').loadPlugins().length; } catch { return 0; }
 }
 
+// capabilities.js adalah turunan resmi dari CATEGORIES di atas. Kita pakai untuk
+// validasi (mis. memastikan registry tidak kosong / sinkron) TANPA mengubah
+// tampilan menu: header "▸ plugin : N file" tetap memakai pluginCount().
+function capabilityCount() {
+  try { return require('../lib/capabilities').listCapabilities().length; } catch { return 0; }
+}
+
 function badges(f) {
   const b = [];
   if (f && f.reply) b.push('💬');
@@ -510,4 +517,4 @@ function splitMessage(text, max = 3600) {
   return out.length ? out : [''];
 }
 
-module.exports = { menuText, buildMenu, splitMessage, CATEGORIES, findCategory };
+module.exports = { menuText, buildMenu, splitMessage, CATEGORIES, findCategory, capabilityCount };

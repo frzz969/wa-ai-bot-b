@@ -16,6 +16,9 @@ const {
   preprocessForOCR,
   talkSessions,
   scopeKey,
+  resolveMemoryKey,
+  getSummary,
+  getPrefs,
   sessionStyle,
   withTalkFlag,
   mapSetCapped,
@@ -28,6 +31,15 @@ const {
 
 async function handleChat(ctx) {
   const { sock, m, jid, isGroup, sender, body, cmd, args, prefix, start, unwrapped } = ctx;
+  // Fase 4: bawa `sender` di semua opts memory agar tiap user punya scope sendiri
+  // (termasuk di grup). groupSenderOpts sudah berisi metadata grup; cukup tambah sender.
+  const mOpts = (extra) => {
+    const o = Object.assign({}, extra || {});
+    o.sender = sender;
+    return o;
+  };
+  // Scope memory efektif untuk perintah .new/.clear/.memory
+  const memScope = resolveMemoryKey(jid, { sender });
     // ---------- .ai ----------
     if (cmd === 'ai') {
       const imgMsg = m.message?.imageMessage;
@@ -51,8 +63,8 @@ async function handleChat(ctx) {
         const mime = p.mime;
         try {
           const answer = await chatAI(question + OCR_SUFFIX, base64, mime);
-          pushMessage(jid, 'user', question + ' [gambar]');
-          pushMessage(jid, 'bot', answer);
+          pushMessage(jid, 'user', question + ' [gambar]', mOpts());
+          pushMessage(jid, 'bot', answer, mOpts());
           await safeReply(sock, jid, answer, m); return true;
         } catch (e) {
           console.error('ai', e?.message || e);
@@ -78,8 +90,8 @@ async function handleChat(ctx) {
           const v = await compressForVision(buf, quotedImg.mimetype || 'image/jpeg');
           const p = await preprocessForOCR(v.buffer);
           const answer = await chatAI(args + OCR_SUFFIX, p.buffer.toString('base64'), p.mime);
-          pushMessage(jid, 'user', args + ' [gambar reply]');
-          pushMessage(jid, 'bot', answer);
+          pushMessage(jid, 'user', args + ' [gambar reply]', mOpts());
+          pushMessage(jid, 'bot', answer, mOpts());
           await safeReply(sock, jid, answer, m); return true;
         } catch (e) {
           console.error('ai', e?.message || e);
@@ -95,17 +107,17 @@ async function handleChat(ctx) {
         if (isGroup) {
           // Jalur grup: sertakan identitas pengirim + reply/mention ke context.
           // Jalur private di bawah TIDAK diubah.
-          const gopts = groupSenderOpts(m);
+          const gopts = mOpts(groupSenderOpts(m));
           const prompt = buildContextPrompt(jid, withTalkFlag(jid, sender, args), gopts);
           const answer = await chatAI(prompt, undefined, undefined, sessionStyle(jid, sender) || config.STYLE);
           pushMessage(jid, 'user', args, gopts);
-          pushMessage(jid, 'bot', answer);
+          pushMessage(jid, 'bot', answer, gopts);
           await safeReply(sock, jid, answer, m); return true;
         }
-        const prompt = buildContextPrompt(jid, withTalkFlag(jid, sender, args));
+        const prompt = buildContextPrompt(jid, withTalkFlag(jid, sender, args), mOpts());
         const answer = await chatAI(prompt, undefined, undefined, sessionStyle(jid, sender) || config.STYLE);
-        pushMessage(jid, 'user', args);
-        pushMessage(jid, 'bot', answer);
+        pushMessage(jid, 'user', args, mOpts());
+        pushMessage(jid, 'bot', answer, mOpts());
         await safeReply(sock, jid, answer, m); return true;
       } catch (e) {
         console.error('ai', e?.message || e);
@@ -121,8 +133,8 @@ async function handleChat(ctx) {
     if (cmd === 'talk' || cmd === 'curhat') {
       mapSetCapped(talkSessions, scopeKey(jid, sender), true);
       if (!args) {
-        pushMessage(jid, 'user', '.talk (masuk mode curhat)');
-        pushMessage(jid, 'bot', '[masuk mode curhat]');
+        pushMessage(jid, 'user', '.talk (masuk mode curhat)', mOpts());
+        pushMessage(jid, 'bot', '[masuk mode curhat]', mOpts());
         await safeReply(
           sock, jid,
           `bolehh sini cerita pelan-pelan yaa, aku bakal dengerin kok \n\n_(mode curhat aktif - sampai kamu ketik ${prefix}stoptalk)_`,
@@ -130,10 +142,10 @@ async function handleChat(ctx) {
         ); return true;
       }
       try {
-        const prompt = buildContextPrompt(jid, withTalkFlag(jid, sender, args));
+        const prompt = buildContextPrompt(jid, withTalkFlag(jid, sender, args), mOpts());
         const answer = await chatAI(prompt, undefined, undefined, config.TALK_STYLE);
-        pushMessage(jid, 'user', args);
-        pushMessage(jid, 'bot', answer);
+        pushMessage(jid, 'user', args, mOpts());
+        pushMessage(jid, 'bot', answer, mOpts());
         await safeReply(sock, jid, `${answer}\n\n_(mode curhat aktif sampai ${prefix}stoptalk)_`, m); return true;
       } catch (e) {
         console.error('talk', e?.message || e);
@@ -142,8 +154,8 @@ async function handleChat(ctx) {
     }
     if (cmd === 'stoptalk' || cmd === 'stopcurhat') {
       talkSessions.delete(scopeKey(jid, sender));
-      pushMessage(jid, 'user', '.stoptalk (keluar mode curhat)');
-      pushMessage(jid, 'bot', '[keluar mode curhat]');
+      pushMessage(jid, 'user', '.stoptalk (keluar mode curhat)', mOpts());
+      pushMessage(jid, 'bot', '[keluar mode curhat]', mOpts());
       await safeReply(
         sock, jid,
         'okeyy, mode curhatnya aku matiin ya. makasih udah mau ceritaa, kamu hebat kok udah berani ngomongin inii.. \n\nmau lanjut ngobrol biasa atau tanya-tanya, gas ajaa!',
@@ -166,29 +178,34 @@ async function handleChat(ctx) {
 
     // ---------- 1. CHAT: new / clear / memory / model ----------
     if (cmd === 'new') {
-      clearMemory(jid);
+      clearMemory(jid, mOpts()); // hapus HANYA scope user ini
       talkSessions.delete(scopeKey(jid, sender));
       await safeReply(sock, jid, '✨ Oke, kita mulai baru! Ingatanku sudah kuhapus. Mau tanya apa?', m); return true;
     }
     if (cmd === 'clear') {
-      clearMemory(jid);
+      clearMemory(jid, mOpts()); // hapus HANYA scope user ini
       talkSessions.delete(scopeKey(jid, sender));
       await safeReply(sock, jid, '🧹 Ingatan chat dihapus. Sampai jumpa lagi!', m); return true;
     }
     if (cmd === 'memory') {
-      const hist = getMemory(jid);
-      if (hist.length === 0) {
+      const hist = getMemory(jid, mOpts());
+      const summary = getSummary(memScope);
+      const prefs = getPrefs(memScope);
+      const prefEntries = Object.entries(prefs || {}).filter(([, v]) => v !== '');
+      if (hist.length === 0 && !summary && prefEntries.length === 0) {
         await safeReply(sock, jid, '🧠 Belum ada pesan tersimpan. Ngobrol dulu yuk pakai .ai!', m); return true;
       }
       const last3 = hist
         .slice(-3)
         .map((h) => `• [${h.role}] ${String(h.content).slice(0, 120)}`)
         .join('\n');
-      await safeReply(
-        sock, jid,
-        `🧠 *Memory:* ${hist.length} pesan tersimpan.\n\n${last3}`,
-        m
-      ); return true;
+      const parts = [`🧠 *Memory:* ${hist.length} pesan tersimpan.`];
+      if (last3) parts.push(last3);
+      if (summary) parts.push(`📝 *Ringkasan:* ${String(summary).slice(0, 400)}`);
+      if (prefEntries.length) {
+        parts.push('⚙️ *Preferensi:* ' + prefEntries.map(([k, v]) => `${k}=${v}`).join('; '));
+      }
+      await safeReply(sock, jid, parts.join('\n\n'), m); return true;
     }
     if (cmd === 'model') {
       await safeReply(

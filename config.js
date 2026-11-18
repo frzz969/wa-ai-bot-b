@@ -1,7 +1,23 @@
 require('dotenv').config();
 
+// Termux mengekspor env var `PREFIX=/data/data/com.termux/files/usr`.
+// dotenv tidak menimpa env yang sudah ada, jadi `process.env.PREFIX` bisa
+// berisi path filesystem, bukan prefiks command. Prioritaskan BOT_PREFIX,
+// lalu terima PREFIX hanya bila bukan path absolut, akhirnya fallback '.'.
+function resolvePrefix() {
+  const explicit = (process.env.BOT_PREFIX || '').trim();
+  if (explicit) return explicit;
+
+  const fromEnv = (process.env.PREFIX || '').trim();
+  // Path absolut (Termux) bukan prefiks yang valid.
+  if (fromEnv && !fromEnv.startsWith('/') && !fromEnv.includes('/')) {
+    return fromEnv;
+  }
+  return '.';
+}
+
 module.exports = {
-  PREFIX: process.env.PREFIX || '.',
+  PREFIX: resolvePrefix(),
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
   GROQ_API_KEY: process.env.GROQ_API_KEY || '',
   JERE_API_KEY: process.env.JERE_API_KEY || '',

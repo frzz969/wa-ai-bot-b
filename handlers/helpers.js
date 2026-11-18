@@ -36,15 +36,34 @@ function ownerNumbers() {
 }
 
 // Cocokkan satu kandidat (participant / remoteJid / sender) ke daftar owner.
-// WA sekarang mengirim @lid (bukan nomor HP) di grup, jadi cocokkan:
-//   1. digit penuh sama persis
-//   2. 10 digit terakhir sama (menutup beda kode negara / leading 0)
+//
+// Urutan prioritas (fail-closed):
+//   1. Exact match digit penuh — paling aman.
+//   2. Suffix 10 digit HANYA sebagai fallback, dan hanya bila keduanya
+//      "sekeluarga": selisih panjang <= 1 dan salah satu berupa bentuk
+//      nasional (diawali 0) dari bentuk internasional (diawali kode negara).
+//      Ini menutup kasus 0812... vs 62812... tanpa mencocokkan nomor
+//      lintas negara yang kebetulan 10 digit terakhirnya sama.
 function matchesOwner(candidate, owners) {
   const c = normalizeNum(candidate);
   if (!c) return false;
+
+  // 1. Exact dulu.
   for (const o of owners) {
     if (c === o) return true;
-    if (c.length >= 10 && o.length >= 10 && c.slice(-10) === o.slice(-10)) return true;
+  }
+
+  // 2. Suffix fallback dengan syarat "sekeluarga".
+  for (const o of owners) {
+    if (c.length < 10 || o.length < 10) continue;
+    if (Math.abs(c.length - o.length) > 1) continue;
+    const tailC = c.slice(-10);
+    const tailO = o.slice(-10);
+    if (tailC !== tailO) continue;
+    const [short, long] = c.length <= o.length ? [c, o] : [o, c];
+    // short harus bentuk nasional (0...) dan long bentuk internasional
+    // (diawali kode negara, bukan 0).
+    if (short.startsWith('0') && !long.startsWith('0')) return true;
   }
   return false;
 }

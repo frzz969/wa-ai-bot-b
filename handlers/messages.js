@@ -3,6 +3,9 @@
 // perintah per kategori di ./<kategori>.js. Urutan pengecekan dipertahankan.
 const config = require('../config');
 const S = require('./state');
+const { chatAIWithTools } = require('../lib/ai');
+const capabilities = require('../lib/capabilities');
+const toolRouter = require('../lib/tool-router');
 const {
   chatAI,
   pushMessage,
@@ -26,6 +29,7 @@ const {
   sendLongText,
   extractText,
   getSender,
+  setSummary,
   getMentionList,
   isMentionToBot,
   safeReply,
@@ -35,6 +39,10 @@ const {
 } = S;
 const { menuText } = require('./menu');
 const { loadPlugins } = require('../lib/plugin-loader');
+// Fase 2A (C1): guard ban/rate-limit untuk command yang tidak lewat registry baru.
+// tryNewRouter sudah menjalankan pipeline penuh untuk 13 command registry-nya;
+// guard di bawah HANYA dipakai untuk command yang jatuh ke plugin loop.
+const guards = require('../src/guards');
 
 // Plugin di plugins/<tema>/ dimuat otomatis oleh lib/plugin-loader.js.
 // CARA TAMBAH COMMAND:taruh file .js baru di plugins/<tema>/, export handler
@@ -42,6 +50,174 @@ const { loadPlugins } = require('../lib/plugin-loader');
 //   router di bawah akan otomatis memanggilnya. Urutan = nama file (01-, 02-, ...).
 // Kontrak handler: async (ctx) => true bila pesan sudah ditangani.
 const plugins = loadPlugins();
+
+// ================= FASE 5: natural-language -> tool -> plugin =================
+
+// System prompt tambahan yang mengajarkan AI memakai tool `sonezz_run`.
+// Dipakai HANYA di freechat private; jalur grup/command tidak berubah.
+const TOOL_SYSTEM_PROMPT =
+  'Kamu bisa menjalankan fitur bot WhatsApp lewat tool `sonezz_run`. ' +
+  'Gunakan tool bila user meminta aksi konkret: download, buat stiker, cari info, ' +
+  'main game, cek saldo, dan sejenisnya. Jangan mengarang command — hanya pakai ' +
+  'command yang ada di daftar tool. Bila parameter penting kurang (mis. nama lagu, ' +
+  'link, atau target), tanya user dulu lewat jawaban teks biasa, jangan panggil tool. ' +
+  'Untuk pertanyaan/ngobrol biasa, jawab seperti biasa tanpa tool. ' +
+  'Selalu jawab dalam Bahasa Indonesia yang santai dan singkat.';
+
+// Jalankan plugin loop yang SUDAH ADA dengan ctx sintetis. Dipakai ulang oleh
+// executeCommandAs agar tidak ada logika eksekusi baru / sock langsung.
+async function runPluginLoop(ctx) {
+  let pluginError = null;
+  for (const plugin of plugins) {
+    try {
+      if (await plugin.handler(ctx)) return { handled: true, error: null };
+    } catch (e) {
+      pluginError = `${plugin.name}: ${e?.message || e}`;
+      console.error('[plugin]', plugin.name, e?.message || e);
+    }
+  }
+  return { handled: false, error: pluginError };
+}
+
+// Eksekusi command hasil tool lewat plugin loop. Flag __fromTool mencegah
+// natural-language routing memproses ulang (anti-rekursi).
+async function executeCommandAs(baseCtx, command, args) {
+  const cmd = String(command || '').toLowerCase().replace(/^\.+/, '').trim();
+  const a = String(args || '').trim();
+  const body = a ? `${cmd} ${a}` : cmd;
+  const syntheticCtx = {
+    ...baseCtx,
+    m: baseCtx.m,
+    body,
+    cmd,
+    args: a,
+    __fromTool: true,
+  };
+  try { syntheticCtx.m.__fromTool = true; } catch {}
+
+  // Guard ban/rate-limit tetap berlaku (logika Fase 2A yang sudah ada).
+  // Owner sudah divalidasi tool-router; di sini hanya ban + rate-limit.
+  try {
+    const sender = syntheticCtx.sender;
+    let isOwner = false;
+    try {
+      isOwner = !!(await S.isOwnerAsync(syntheticCtx.sock, sender, syntheticCtx.jid, sender));
+    } catch {}
+    const guardCtx = {
+      sender,
+      isOwner,
+      reply: (text) => safeReply(syntheticCtx.sock, syntheticCtx.jid, text, syntheticCtx.m),
+    };
+    const allowed = await guards.runPipeline(guardCtx, {});
+    if (!allowed) return { handled: true, blocked: true };
+  } catch (e) {
+    console.error('[tool-guard]', e?.message || e);
+    return { handled: true, blocked: true };
+  }
+
+  const res = await runPluginLoop(syntheticCtx);
+  if (!res.handled && res.error) {
+    await safeReply(
+      syntheticCtx.sock,
+      syntheticCtx.jid,
+      `⚠️ Fitur \`.${cmd}\` gagal dijalankan.\n_${res.error}_`,
+      syntheticCtx.m
+    ).catch(() => {});
+  } else if (!res.handled) {
+    await safeReply(
+      syntheticCtx.sock,
+      syntheticCtx.jid,
+      `⚠️ Fitur \`.${cmd}\` belum bisa dijalankan lewat AI. Coba ketik \`.${cmd}\` langsung ya.`,
+      syntheticCtx.m
+    ).catch(() => {});
+  }
+  return res;
+}
+
+// Ringkasan otomatis tiap 10 giliran freechat (bukan tiap pesan).
+const summaryCounters = new Map();
+async function maybeSummarize(jid, sender) {
+  try {
+    const key = scopeKey(jid, sender);
+    const n = (summaryCounters.get(key) || 0) + 1;
+    summaryCounters.set(key, n);
+    if (n % 10 !== 0) return;
+    const hist = S.getMemory(jid, { sender }) || [];
+    if (!hist.length) return;
+    const recent = hist.slice(-10).map((h) =>
+      `${h.role === 'user' ? 'User' : 'Bot'}: ${String(h.content || '').slice(0, 300)}`
+    );
+    const summary = recent.join('\n').slice(0, 1500);
+    await setSummary(jid, summary, { sender });
+  } catch (e) {
+    console.error('[summary]', e?.message || e);
+  }
+}
+
+// Routing bahasa alami di freechat private. Mengembalikan true bila pesan sudah
+// ditangani (tool dijalankan / konfirmasi / penolakan), false bila harus dijawab
+// AI biasa.
+async function tryToolRouting(sock, m, jid, sender, body) {
+  // (a) Balasan konfirmasi (iya/batal) SPRINT dicegat tanpa memanggil AI.
+  const conf = toolRouter.confirmPending({ jid, sender }, body);
+  if (conf) {
+    if (conf.ok && conf.synthetic) {
+      await safeReply(sock, jid, conf.message, m).catch(() => {});
+      await executeCommandAs({ sock, m, jid, isGroup: false, sender }, conf.synthetic.cmd, conf.synthetic.args);
+    } else if (conf.message) {
+      await safeReply(sock, jid, conf.message, m).catch(() => {});
+    }
+    return true;
+  }
+
+  // (b) Tanya AI dengan tool. Katalog diambil otomatis oleh chatAIWithTools.
+  //     Bila tool-calling gagal total, kembalikan false agar jalur AI biasa
+  //     (race Gemini+Groq) tetap jalan — tidak mengubah perilaku lama.
+  let result;
+  try {
+    const style =
+      TOOL_SYSTEM_PROMPT + '\n\n' + (sessionStyle(jid, sender) || config.STYLE);
+    const prompt = buildContextPrompt(jid, withTalkFlag(jid, sender, body), { sender });
+    result = await chatAIWithTools(prompt, capabilities.toFunctionDeclarations(), style);
+  } catch (e) {
+    console.error('[tool-routing]', e?.message || e);
+    return false;
+  }
+
+  if (result && result.type === 'tool' && result.call) {
+    const ctx = {
+      jid,
+      sender,
+      reply: (text) => safeReply(sock, jid, text, m),
+      isOwnerAsync: async () => {
+        try { return !!(await S.isOwnerAsync(sock, sender, jid, sender)); } catch { return false; }
+      },
+    };
+    const r = await toolRouter.dispatchToolCall(ctx, result.call);
+    if (r.needConfirm) {
+      await safeReply(sock, jid, r.prompt, m);
+      return true;
+    }
+    if (r.rejected) {
+      // Pesan penolakan sudah dikirim via ctx.reply di tool-router.
+      return true;
+    }
+    if (r.ok && r.synthetic) {
+      await executeCommandAs({ sock, m, jid, isGroup: false, sender }, r.synthetic.cmd, r.synthetic.args);
+      return true;
+    }
+    if (r.message) {
+      await safeReply(sock, jid, r.message, m);
+      return true;
+    }
+  }
+
+  // (c) Tidak ada function call: kembalikan teks untuk dijawab AI biasa.
+  if (result && result.type === 'text' && result.text) {
+    return { text: result.text };
+  }
+  return false;
+}
 
 async function handleMessage(sock, m) {
   try {
@@ -232,10 +408,25 @@ async function handleMessage(sock, m) {
     // Private tanpa prefix/mention = chat bebas, JANGAN dianggap command
     if (!isGroup && !hasPrefix && !mentioned) {
       try {
-        const prompt = buildContextPrompt(jid, withTalkFlag(jid, sender, body));
+        // Fase 5: coba routing tool (bahasa alami -> sonezz_run -> plugin).
+        // Flag anti-rekursi: hasil eksekusi tool tidak masuk jalur ini lagi.
+        if (!m?.__fromTool) {
+          const routed = await tryToolRouting(sock, m, jid, sender, body);
+          if (routed === true) return; // tool dijalankan / konfirmasi / penolakan
+          const answer = routed && routed.text ? routed.text : null;
+          if (answer) {
+            pushMessage(jid, 'user', body, { sender });
+            pushMessage(jid, 'bot', answer, { sender });
+            await maybeSummarize(jid, sender);
+            return await safeReply(sock, jid, answer, m);
+          }
+        }
+        // Fallback AI biasa (tool tidak tersedia / API menolak tools).
+        const prompt = buildContextPrompt(jid, withTalkFlag(jid, sender, body), { sender });
         const answer = await chatAI(prompt, undefined, undefined, sessionStyle(jid, sender) || config.STYLE);
-        pushMessage(jid, 'user', body);
-        pushMessage(jid, 'bot', answer);
+        pushMessage(jid, 'user', body, { sender });
+        pushMessage(jid, 'bot', answer, { sender });
+        await maybeSummarize(jid, sender);
         return await safeReply(sock, jid, answer, m);
       } catch (e) {
         console.error('freechat', e?.message || e);
@@ -246,6 +437,36 @@ async function handleMessage(sock, m) {
         );
       }
     }
+    // ---------- FASE 2A (C1): guard global untuk SEMUA prefix command ----------
+    // tryNewRouter lebih dulu: bila command ada di registry, pipeline sudah jalan di sana
+    // dan fungsi sudah return di atas -> TIDAK ada double rate-limit di sini.
+    // Command yang sampai ke titik ini = command plugin (atau perintah tak dikenal).
+    // Guard dipakai: ban (banned.json) + rate-limit in-memory. Owner tetap exempt.
+    // Freechat private, VN, dan dokumen sudah return lebih awal -> tidak terkena guard.
+    if ((hasPrefix || mentioned) && !m?.__guarded) {
+      try {
+        let isOwner = false;
+        try {
+          isOwner = !!(await S.isOwnerAsync(sock, sender, jid, sender));
+        } catch {}
+        const guardCtx = {
+          sender,
+          isOwner,
+          reply: (text) => safeReply(sock, jid, text, m),
+        };
+        // command tanpa metadata cooldown/ownerOnly/groupOnly/adminOnly:
+        // cooldown/owner/group/admin guard jadi no-op, ban + rate-limit tetap aktif.
+        const allowed = await guards.runPipeline(guardCtx, {});
+        if (!allowed) return;
+        // Tandai pesan agar pemanggilan guard lain (mis. plugin) tidak mengulang.
+        try { m.__guarded = true; } catch {}
+      } catch (e) {
+        console.error('[guard-plugin]', e?.message || e);
+        // Gagal guard = blokir aman untuk command (jangan jalankan plugin tanpa guard).
+        return;
+      }
+    }
+
     // ---------- Router plugin (plugins/<tema>/*.js, urutan nama file) ----------
     const ctx = { sock, m, jid, isGroup, sender, body, cmd, args, prefix, start, unwrapped };
     let pluginError = null;
@@ -285,10 +506,10 @@ async function handleMessage(sock, m) {
     // (dulu hasilnya bot menjawab dengan AI alih-alih perintah).
     if (!isGroup && !hasPrefix && !mentioned) {
       try {
-        const prompt = buildContextPrompt(jid, withTalkFlag(jid, sender, body));
+        const prompt = buildContextPrompt(jid, withTalkFlag(jid, sender, body), { sender });
         const answer = await chatAI(prompt, undefined, undefined, sessionStyle(jid, sender) || config.STYLE);
-        pushMessage(jid, 'user', body);
-        pushMessage(jid, 'bot', answer);
+        pushMessage(jid, 'user', body, { sender });
+        pushMessage(jid, 'bot', answer, { sender });
         return await safeReply(sock, jid, answer, m);
       } catch (e) {
         console.error('freechat', e?.message || e);
@@ -372,4 +593,4 @@ async function handleParticipantsUpdate(sock, update) {
   }
 }
 
-module.exports = { handleMessage, menuText, handleParticipantsUpdate };
+module.exports = { handleMessage, menuText, handleParticipantsUpdate, executeCommandAs };

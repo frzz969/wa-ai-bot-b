@@ -54,6 +54,27 @@ async function handleBot(ctx) {
       await safeReply(sock, jid, `🏓 Pong! ${Date.now() - start} ms`, m); return true;
     }
 
+    // ---------- .capabilities / .fitur ----------
+    // Alat verifikasi registry: ringkasan jumlah capability per kategori.
+    // Tidak menambah fitur baru ke menu — hanya membaca capabilities.js.
+    if (cmd === 'capabilities' || cmd === 'fitur') {
+      try {
+        const caps = require('../../lib/capabilities');
+        const rows = caps.capabilitiesByCategory()
+          .map((c) => `▸ ${c.title} — ${c.count}`)
+          .join('\n');
+        const total = caps.listCapabilities().length;
+        await safeReply(
+          sock, jid,
+          `🧩 *Capabilities Registry* — ${total} command\n\n${rows}\n\n> ketik ${prefix}menu all untuk daftar lengkap`,
+          m
+        );
+      } catch (e) {
+        await safeReply(sock, jid, '❌ Registry capabilities belum tersedia.', m);
+      }
+      return true;
+    }
+
     // ---------- 10. BOT: about / status ----------
     if (cmd === 'about') {
       await sendMenuWithHeader(
@@ -118,14 +139,15 @@ async function handleBot(ctx) {
       }
       runCooldown.set(sender, Date.now());
 
-      console.log(`[RUN] ${sender} :: ${code.slice(0, 200)}`);
+      // Jangan pernah log kode user (bisa mengandung data sensitif).
+      // Cukup catat fakta bahwa .run dipanggil, tanpa isi kode.
       try {
         const out = await runSandboxed(code);
         await safeReply(sock, jid, `💻 *Hasil:*\n${out}`, m); return true;
       } catch (e) {
-        console.error('run', e?.message || e);
-        const msg = String((e && e.message) || e || 'Error').slice(0, 500);
-        await safeReply(sock, jid, `❌ Error:\n${msg}`, m); return true;
+        // Jangan echo error internal/stack ke user. Kirim pesan generik.
+        // Detail tetap tidak dicatat untuk menghindari kebocoran lewat log.
+        await safeReply(sock, jid, '❌Eksekusi ditolak atau gagal demi keamanan.', m); return true;
       }
     }
 

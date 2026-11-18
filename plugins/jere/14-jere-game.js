@@ -7,6 +7,8 @@ const {
   jereFun,
   safeReply,
   jereErr,
+  interim,
+  sendLongText,
 } = S;
 
 async function handleJereGame(ctx) {

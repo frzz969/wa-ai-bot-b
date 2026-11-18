@@ -7,7 +7,7 @@ const {
   path,
   jereUtil,
   sendLongText,
-  isOwner,
+  isOwnerAsync,
   getDisplayName,
   safeReply,
   interim,
@@ -17,6 +17,15 @@ const {
 
 async function handleJereUtil(ctx) {
   const { sock, m, jid, isGroup, sender, body, cmd, args, prefix, start, unwrapped } = ctx;
+  // Owner check fail-closed: 4 arg (participant, remoteJid, sender) + async
+  // supaya @lid di grup ikut ter-resolusi lewat sock.signalRepository.
+  const isOwnerNow = async () => {
+    try {
+      return await isOwnerAsync(sock, m?.key?.participant, jid, sender);
+    } catch {
+      return false;
+    }
+  };
     // ===== JERE-UTIL (yts/pin/wallpaper/libur/style/genius/mlbb/ff/info + owner aman) =====
     // CATATAN: jspotify, jcuaca, jbmkg/bmkg, jnews, jshort, jspeed/jping DIHAPUS
     //   karena dobel dengan lane bot sendiri:
@@ -81,7 +90,7 @@ async function handleJereUtil(ctx) {
         await safeReply(sock, jid, jereUtil.formatStyleTextCaption(styles).slice(0, 3500), m); return true;
       } catch (e) {
         console.error(cmd, e?.message || e);
-        await safeReply(sock, jid, `❌ ${String(e?.message || 'Gagal style teks.').slice(0, 200)}`, m); return true;
+        await safeReply(sock, jid, '❌ Gagal style teks. Coba lagi nanti ya.', m); return true;
       }
     }
     if (cmd === 'genius') {
@@ -140,7 +149,7 @@ async function handleJereUtil(ctx) {
     }
     // Owner aman saja (eval/exec/restart TIDAK di-wiring; spam TIDAK ada di lib).
     if (cmd === 'backup') {
-      if (!isOwner(sender, jid)) { await safeReply(sock, jid, '🔒 Khusus owner ya.', m); return true; }
+      if (!(await isOwnerNow())) { await safeReply(sock, jid, '🔒 Khusus owner ya.', m); return true; }
       try {
         const dir = path.join(__dirname, '..', 'database');
         let files = [];
@@ -157,11 +166,11 @@ async function handleJereUtil(ctx) {
         const name = jereUtil.buildBackupDbFileName ? jereUtil.buildBackupDbFileName('database') : `database-${Date.now()}.json`;
         await safeReply(sock, jid, `💾 *Backup DB (ringkasan)*\n📄 Nama: ${name}\n📊 Total: ${(totalBytes / 1024).toFixed(1)} KB\n${rows.join('\n') || '(database kosong)'}`, m); return true;
       } catch (e) {
-        await safeReply(sock, jid, `❌ ${String(e?.message || 'Gagal backup.').slice(0, 200)}`, m); return true;
+        await safeReply(sock, jid, '❌ Gagal backup. Coba lagi nanti ya.', m); return true;
       }
     }
     if (cmd === 'plugins') {
-      if (!isOwner(sender, jid)) { await safeReply(sock, jid, '🔒 Khusus owner ya.', m); return true; }
+      if (!(await isOwnerNow())) { await safeReply(sock, jid, '🔒 Khusus owner ya.', m); return true; }
       try {
         // Path SEBELUMNYA 'src/commands' — folder itu tidak ada, hanya 'plugins/'.
         const pluginsDir = path.join(__dirname, '..', '..', 'plugins');
@@ -172,18 +181,18 @@ async function handleJereUtil(ctx) {
         const files = jereUtil.listPluginFiles(pluginsDir);
         await sendLongText(sock, jid, jereUtil.formatPluginListCaption(files.slice(0, 50)).slice(0, 3500), m); return true;
       } catch (e) {
-        await safeReply(sock, jid, `❌ ${String(e?.message || 'Gagal baca plugin.').slice(0, 200)}`, m); return true;
+        await safeReply(sock, jid, '❌ Gagal baca plugin. Coba lagi nanti ya.', m); return true;
       }
     }
     if (cmd === 'join') {
-      if (!isOwner(sender, jid)) { await safeReply(sock, jid, '🔒 Khusus owner ya.', m); return true; }
+      if (!(await isOwnerNow())) { await safeReply(sock, jid, '🔒 Khusus owner ya.', m); return true; }
       if (!args) { await safeReply(sock, jid, `Contoh: ${prefix}join <link invite grup>`, m); return true; }
       try {
         const code = jereUtil.parseJoinInviteCode(args);
         await sock.groupAcceptInvite(code);
         await safeReply(sock, jid, '✅ Bot berhasil join grup!', m); return true;
       } catch (e) {
-        await safeReply(sock, jid, `❌ Gagal join: ${String(e?.message || 'link salah/kadaluarsa.').slice(0, 200)}`, m); return true;
+        await safeReply(sock, jid, '❌ Gagal join: link salah atau kadaluarsa.', m); return true;
       }
     }
 

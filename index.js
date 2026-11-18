@@ -71,7 +71,10 @@ async function startBot() {
   // Semaphore sederhana: maks 4 pesan diproses bersamaan (FIFO).
   // Tiap pesan fire-and-forget (tidak blokir pesan lain), antrean berlebih menunggu giliran.
   const MAX_CONCURRENT = 4;
+  // Fase 2A: batasi antrean agar banjir pesan tidak menumbuhkan waitQueue tanpa batas (DoS).
+  const MAX_QUEUE = 100;
   let active = 0;
+  let dropped = 0;
   const waitQueue = [];
   function pump() {
     while (active < MAX_CONCURRENT && waitQueue.length > 0) {
@@ -82,6 +85,14 @@ async function startBot() {
   }
   function runLimited(task) {
     return new Promise((resolve) => {
+      // Antrean penuh: tolak dengan aman (log + resolve, jangan push).
+      // Callable tetap di-resolve agar caller fire-and-forget tidak menggantung.
+      if (waitQueue.length >= MAX_QUEUE) {
+        dropped++;
+        console.warn(`[queue] penuh (${MAX_QUEUE}), pesan ditolak. Total ditolak: ${dropped}`);
+        resolve();
+        return;
+      }
       waitQueue.push(async () => {
         try {
           await task();

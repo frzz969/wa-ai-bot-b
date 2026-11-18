@@ -11,12 +11,13 @@ const {
   mapSetCapped,
   normalizeNum,
   isOwner,
+  isOwnerAsync,
   botJidNormalized,
   withTimeout,
   chunkText,
 } = H;
 const { chatAI, transcribeAudio } = require('../lib/ai');
-const { pushMessage, buildContextPrompt, clearMemory, getMemory, countChats } = require('../lib/memory');
+const { pushMessage, buildContextPrompt, clearMemory, getMemory, countChats, resolveMemoryKey, setSummary, getSummary, setPref, getPrefs, clearPref } = require('../lib/memory');
 const { imageToSticker, textToSticker } = require('../lib/sticker');
 const { downloadBuffer, getQuoted, wrapQuoted, unwrapMessage, compressForVision, preprocessForOCR } = require('../lib/media');
 const { runSandboxed } = require('../lib/sandbox');
@@ -81,7 +82,9 @@ async function buildCommandCtx(sock, m, jid, isGroup, sender, body) {
   const parts = String(body || '').split(/\s+/).filter(Boolean);
   const args = parts.slice(1).join(' ').trim();
   const mentions = getMentionList(m);
-  const owner = isOwner(sender, jid);
+  // isOwner(participant, remoteJid, sender): dulu cuma 2 arg sehingga
+  // slot `sender` selalu undefined. Pakai async agar @lid ikut ter-resolusi.
+  const owner = await isOwnerAsync(sock, sender, jid, sender);
   let admin = false;
   let botAdmin = false;
   if (isGroup) {
@@ -533,7 +536,7 @@ async function handleVN(sock, jid, m, target, audioMeta) {
     console.error('vn', e?.message || e);
     return await safeReply(
       sock, jid,
-      '😢 Maaf, transkrip VN gagal. Pastikan GROQ_API_KEY terisi dan coba VN lebih pendek.',
+      '😢 Maaf, transkrip VN gagal. Coba VN lebih pendek atau ulangi nanti ya.',
       m
     );
   }
@@ -553,17 +556,18 @@ async function handleVN(sock, jid, m, target, audioMeta) {
 
 // ---------- Helper JERE (dipindah verbatim dari dalam handleMessage; dipakai semua lane jere-*) ----------
 const jereErr = (e) => {
-  // Pengaman: apa pun isi error internalnya, user tidak boleh melihat nama
-  // penyedia ("Jere"). Ini satu-satunya gerbang pesan error ke user.
-  const raw = String((e && e.message) || 'Gagal memproses. Coba lagi ya.');
-  const msg = raw.replace(/jere\s*api/gi, 'Server').replace(/\bjere\b/gi, 'Server');
-  if (/key|kuota|quota|apikey|api key|unauthor|forbidden|401|403|limit/i.test(msg) && /server|key|kuota|quota|401|403|unauthor|forbidden/i.test(msg)) {
-    return '⚠️ Fitur ini butuh key valid (cek JERE_API_KEY / kuota habis). Coba lagi nanti ya.';
+  // Gerbang tunggal pesan error ke user. Aturan:
+  //   - jangan pernah sebut nama penyedia / variabel API key
+  //   - jangan pernah echo error upstream mentah (bisa mengandung apikey/URL)
+  //   - balas dengan pesan generik yang tidak membocorkan detail internal
+  const raw = String((e && e.message) || '');
+  if (/key|kuota|quota|apikey|api key|unauthor|forbidden|401|403|limit|b[\u00e9e]but key/i.test(raw)) {
+    return '⚠️ Layanan sedang tidak tersedia atau kuota habis. Coba lagi nanti ya.';
   }
-  if (/tidak mengembalikan|status gagal|http 4|http 5|timeout|522|523|503|502|gagal/i.test(msg)) {
-    return `❌ Layanan Server sedang sibuk. Coba lagi nanti ya. (${msg.slice(0, 120)})`;
+  if (/tidak mengembalikan|status gagal|http 4|http 5|timeout|522|523|503|502|gagal|sibuk/i.test(raw)) {
+    return '❌ Layanan sedang sibuk. Coba lagi nanti ya.';
   }
-  return `❌ ${msg.slice(0, 300)}`;
+  return '❌ Gagal memproses permintaan. Coba lagi nanti ya.';
 };
 const jereFirstUrl = (t) => String(t || '').split(/\s+/).filter(Boolean)[0] || '';
 
@@ -578,6 +582,12 @@ module.exports = {
   clearMemory,
   getMemory,
   countChats,
+  resolveMemoryKey,
+  setSummary,
+  getSummary,
+  setPref,
+  getPrefs,
+  clearPref,
   imageToSticker,
   textToSticker,
   downloadBuffer,

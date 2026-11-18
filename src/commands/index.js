@@ -11,4 +11,13 @@ try {
   console.error('[commands] auto-load gagal:', e?.message || e);
 }
 
-module.exports = { commands, loadCommands, getCommand, listCommands };
+// Ekspos capabilities (single source of truth fitur) agar bisa di-require dari
+// plugin / AI. Ini export tambahan saja — tidak mengubah registry command.
+let capabilities = null;
+try {
+  capabilities = require('../../lib/capabilities');
+} catch {
+  capabilities = null;
+}
+
+module.exports = { commands, loadCommands, getCommand, listCommands, capabilities };
